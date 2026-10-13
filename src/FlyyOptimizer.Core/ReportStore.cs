@@ -1,0 +1,119 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace FlyyOptimizer.Core;
+
+public sealed class ReportStore
+{
+    private readonly string directory;
+    private readonly SemaphoreSlim actionGate = new(1, 1);
+    public static JsonSerializerOptions JsonOptions { get; } = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    public ReportStore(string? directory = null)
+    {
+        this.directory = Path.GetFullPath(directory ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FlyyOptimizer", "reports"));
+    }
+
+    public async Task<string> SaveAsync(SystemSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var stamp = snapshot.CapturedAt.UtcDateTime.ToString("yyyyMMddTHHmmssfffffffZ", CultureInfo.InvariantCulture);
+        var path = Path.Combine(directory, $"{stamp}_{snapshot.Id:N}.json");
+        await WriteAtomicallyAsync(path, JsonSerializer.Serialize(snapshot, JsonOptions));
+        return path;
+    }
+
+    public async Task<IReadOnlyList<SavedReport>> ListAsync()
+    {
+        if (!Directory.Exists(directory)) return [];
+        var reports = new List<SavedReport>();
+        foreach (var path in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly))
+        {
+            if (Path.GetFileName(path).Equals("actions.json", StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                var snapshot = await LoadAsync(path);
+                reports.Add(new(path, snapshot.CapturedAt, snapshot.Machine.CpuName, RecommendationEngine.Analyze(snapshot).Count));
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+            {
+                // A damaged or unavailable report must not hide the other reports.
+            }
+        }
+        return reports.OrderByDescending(r => r.CapturedAt).ToArray();
+    }
+
+    public async Task<SystemSnapshot> LoadAsync(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (!string.Equals(Path.GetDirectoryName(fullPath), directory, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("El informe debe pertenecer al historial de esta aplicación.", nameof(path));
+        try
+        {
+            var text = await File.ReadAllTextAsync(fullPath);
+            using var document = JsonDocument.Parse(text);
+            if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("Id", out _)
+                || !document.RootElement.TryGetProperty("CapturedAt", out _))
+                throw new InvalidDataException("El archivo no contiene un diagnóstico de FlyyOptimizer.");
+            var result = JsonSerializer.Deserialize<SystemSnapshot>(text, JsonOptions);
+            if (result is null || result.Id == Guid.Empty || result.Machine is null || result.Samples is null ||
+                result.Drives is null || result.Drivers is null || result.Startup is null || result.Processes is null ||
+                result.Networks is null || result.Notes is null)
+                throw new InvalidDataException("El informe está incompleto o dañado.");
+            return result;
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("No se pudo leer el informe. El archivo JSON está dañado o tiene un formato incompatible.", ex);
+        }
+    }
+
+    public async Task RecordActionAsync(ActionRecord record)
+    {
+        await actionGate.WaitAsync();
+        try
+        {
+            var actions = (await GetActionsAsync()).ToList();
+            actions.Add(record);
+            await WriteAtomicallyAsync(Path.Combine(directory, "actions.json"), JsonSerializer.Serialize(actions, JsonOptions));
+        }
+        finally { actionGate.Release(); }
+    }
+
+    public async Task<IReadOnlyList<ActionRecord>> GetActionsAsync()
+    {
+        var path = Path.Combine(directory, "actions.json");
+        if (!File.Exists(path)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<ActionRecord>>(await File.ReadAllTextAsync(path), JsonOptions)
+                ?? throw new InvalidDataException("El registro de guías está incompleto.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("El registro de guías está dañado. Se conservó el archivo existente.", ex);
+        }
+    }
+
+    private async Task WriteAtomicallyAsync(string path, string text)
+    {
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, $".{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await File.WriteAllTextAsync(temporary, text);
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+}
