@@ -1,92 +1,102 @@
 # FlyyOptimizer
 
-App de escritorio en español para Windows 11 x64. Analiza el equipo, muestra evidencia de oportunidades de rendimiento, reúne drivers oficiales y aplica ajustes reversibles para Windows y Fortnite.
+**Analiza tu PC, encuentra drivers oficiales y aplica ajustes de rendimiento para Windows y Fortnite desde una sola app.**
 
-La interfaz usa superficies claras, tipografía Segoe UI Variable y transiciones nativas al navegar y usar controles. El movimiento respeta la preferencia de animaciones de Windows y el modo de alto contraste.
+Aplicación de escritorio en español para **Windows 11 x64**, desarrollada en **C# y WPF sobre .NET 10**. La distribución portable incluye el runtime: los usuarios no necesitan instalar .NET, Optimizer ni WinUtil por separado.
 
-## Abrir la app
+## Funciones
 
-En la distribución portable, extrae el ZIP y abre `FlyyOptimizer.exe`. Solo verás el ejecutable con el logo de Flyy y una carpeta `Archivos` con los recursos, instrucciones y licencias. Conserva ambos al mover o compartir la app.
+| Área | Qué ofrece |
+| --- | --- |
+| Diagnóstico | CPU, GPU, RAM, almacenamiento, procesos, inicio, red y drivers instalados. |
+| Identificación | Distingue portátil y escritorio e identifica fabricante, modelo y SKU. |
+| Drivers | Busca ofertas de Windows Update y permite descargarlas dentro de la app. Consulta el catálogo oficial del modelo en Lenovo. |
+| Optimizar PC | Aplica los ajustes disponibles tras confirmar, verifica los cambios y guarda respaldos. |
+| Gaming | Permite elegir ajustes de Windows y detectar la instalación de Fortnite. |
+| Restauración | Recupera ajustes respaldados cuando su estado actual permite restaurarlos. |
+| Historial | Conserva diagnósticos locales y exporta informes JSON o Markdown. |
+
+## Cómo usarlo
+
+1. Extrae todo el ZIP portable y abre **FlyyOptimizer.exe**.
+2. Pulsa **Analizar equipo** para identificar el hardware y las oportunidades de mejora.
+3. En **Drivers**, pulsa **Buscar actualizaciones**. Si hay ofertas, aparecen **Descargar** y la lista desplegable; si no, verás que no hay actualizaciones disponibles.
+4. Pulsa **Optimizar PC** y confirma **Sí, optimizar**. La app aplica las opciones disponibles y muestra el resultado.
+5. Para elegir ajustes concretos, abre **Gaming** y pulsa **Aplicar selección**. Puedes restaurar los ajustes respaldados desde **Mejoras**.
+
+La descarga de drivers guarda los paquetes en la caché de Windows Update; la instalación se realiza mediante Windows Update o el proveedor oficial. Algunas acciones requieren permisos de administrador y abren la propia app con esos permisos.
+
+## Portable ordenado
 
 ```text
 FlyyOptimizer-win-x64/
 ├── FlyyOptimizer.exe
 └── Archivos/
+    ├── README.md
+    ├── THIRD-PARTY-NOTICES.md
+    ├── licenses/
+    └── tools/
 ```
 
-El ejecutable incluye .NET y las bibliotecas necesarias; el usuario no necesita instalar SDK, WinUtil, Optimizer ni utilidades aparte. Las bibliotecas nativas se extraen automáticamente en la caché temporal de .NET al arrancar, sin llenar la carpeta portable. La publicación usa [el formato de archivo único de Microsoft](https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file/overview) y conserva el arranque directo y la elevación desde el mismo ejecutable.
+El ejecutable integra .NET y las bibliotecas de la aplicación. **Archivos** reúne los recursos y las licencias. Conserva ambos al mover o compartir la app.
 
-Desde el proyecto:
+## Ajustes de rendimiento
+
+Según la compatibilidad del equipo, FlyyOptimizer permite:
+
+- Activar Modo Juego y reducir la grabación y la actividad de Xbox Game Bar.
+- Reducir aplicaciones y procesos en segundo plano de Store y Edge.
+- Reducir animaciones, transparencias y otros efectos del escritorio.
+- Usar **Mejor rendimiento** con corriente, o un plan **Alto rendimiento** ya existente cuando corresponda.
+- Asignar la GPU de alto rendimiento a Fortnite en equipos compatibles.
+- Aplicar calidad competitiva, desactivar VSync y desenfoque de movimiento en la configuración existente de Fortnite.
+
+Los cambios se comprueban y guardan su estado anterior. Fortnite debe estar cerrado para editar su configuración; se preservan resolución, límite de FPS, renderizador y controles. No se modifican archivos de anti-cheat. El efecto de cada ajuste depende del hardware y de la carga del equipo; no se promete una cantidad de FPS.
+
+## Compilar desde el código
+
+Requisitos de desarrollo: **Windows 11 x64**, **Git** y **SDK .NET 10**.
 
 ```powershell
+git clone https://github.com/flyybnjj/flyyoptimizer.git
+cd flyyoptimizer
 .\scripts\build.ps1
 .\scripts\run.ps1
 ```
 
-Para compilar necesitas el SDK .NET 10. El script también reconoce el SDK aislado de Codex en `%USERPROFILE%\.codex\runtimes\dotnet-10-sdk`. El SDK se puede descargar desde [Microsoft](https://dotnet.microsoft.com/download/dotnet/10.0).
+El script ejecuta las pruebas, compila y genera:
 
-## Uso
-
-1. Pulsa **Analizar equipo**. Sigue las etapas y los recursos en vivo mientras se identifica si es portátil o escritorio, el fabricante, el modelo comercial y el SKU. Las lecturas son reales y puedes cancelar.
-2. Revisa **Hardware** y **Mejoras**. Además de recomendaciones con evidencia, las herramientas permiten seleccionar un plan de energía existente, gestionar entradas de inicio del usuario y reducir animaciones. Los cambios elegidos guardan su estado anterior para deshacerlos.
-3. En **Drivers**, pulsa **Buscar actualizaciones**. Si Windows Update ofrece drivers, aparece **Descargar** y una lista desplegable; si no, aparece un mensaje sin esos controles. Descargar guarda los archivos en Windows Update, sin instalarlos; puede abrir Flyy con permisos de administrador. Para Lenovo, el análisis consulta también el catálogo oficial del modelo/SKU. La fecha de un driver no demuestra que esté desactualizado.
-4. Usa la vista previa de temporales para elegir archivos a eliminar y comprobar espacio recuperado/archivos omitidos. Los archivos eliminados no se pueden deshacer. Las guías de Windows siguen disponibles y su historial registra únicamente que se abrieron.
-5. Pulsa **Optimizar PC** en Mejoras o Gaming y confirma **Sí**. Flyy detecta Fortnite y aplica automáticamente las preferencias disponibles. Al completar muestra **PC listo**; un fallo o cancelación conserva su indicación y los respaldos. En Mejoras puedes desplegar **Restaurar optimización**. En Gaming puedes elegir los controles de rendimiento y pulsar Aplicar selección.
-6. Usa **Historial** para volver a un diagnóstico guardado y exporta un informe JSON o Markdown.
-
-## Rendimiento y Fortnite
-
-**Optimizar PC** aplica los controles disponibles: Modo Juego, grabación Xbox, carga de apps Store/Edge, efectos del escritorio, GPU de Fortnite y calidad competitiva del juego. Con corriente usa el modo Mejor rendimiento de Windows en equipos compatibles con el plan Equilibrado; si no está disponible, puede usar un plan Alto rendimiento ya existente. La energía puede aumentar consumo, ruido y temperatura. Se comprueban los valores aplicados y se guardan los originales para restaurar.
-
-En **Gaming**, personaliza los controles y pulsa **Aplicar selección**. Los ajustes no disponibles explican su requisito. No se incluyen preferencias de publicidad, telemetría ni búsqueda web en este perfil de rendimiento. La app no ofrece captura, importación de CSV ni comparación de métricas y ya no distribuye PresentMon.
-
-La detección de Fortnite usa manifiestos Epic y rutas acotadas. Solo edita claves gráficas existentes del usuario con el juego cerrado; preserva resolución, límite de FPS, renderizador, controles y archivos de anti-cheat. No promete una mejora de FPS sin medirla. [Alcance, referencias y verificación](docs/performance-focused.md).
-
-## Qué puede comprobar
-
-CPU, GPU, RAM, unidades y espacio libre, procesos por memoria, aplicaciones de inicio, redes, plan energético, drivers instalados y códigos de incidencia. Las temperaturas y otras lecturas dependen del hardware y de los permisos de sus proveedores.
-
-El umbral orientativo de temperatura es 90 °C en tres lecturas. No es el límite térmico universal ni confirma throttling; revisa las especificaciones del modelo. CPU y memoria se señalan por carga media sostenida en varias muestras; una observación corta no determina la causa de todos los problemas.
-
-El análisis usa WMI y sensores opcionales de [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor). Las lecturas GPU usan las API accesibles de AMD/NVIDIA. Los sensores de CPU que requieren un controlador de bajo nivel están deshabilitados; se puede obtener temperatura de CPU cuando ya está expuesta por un proveedor WMI de LibreHardwareMonitor u OpenHardwareMonitor en ejecución. La app mantiene el resto de los datos y explica qué no estuvo disponible. No instala ni activa un controlador de sensores.
-
-La búsqueda de drivers respeta las fuentes y políticas de Windows Update. No encontrar ofertas no descarta otra versión compatible del fabricante. La instalación se realiza mediante Windows Update o el proveedor oficial.
-
-## Identificación y soporte oficial del equipo
-
-La clasificación usa el tipo de sistema y su chassis. Una batería de UPS conectada a un escritorio no lo convierte en portátil. Si Windows no aporta evidencia suficiente, se muestra tipo desconocido.
-
-El catálogo Lenovo se resuelve con modelo o SKU y se verifica contra el nombre del producto oficial. Sus paquetes son los publicados para ese modelo: pueden incluir variantes de componentes o paquetes opcionales y no equivalen a actualizaciones confirmadas para cada dispositivo instalado. Revisa el sistema operativo y la ficha antes de instalar.
-
-**Buscar por serie** es una acción explícita. Solo entonces se lee la serie de BIOS y se consulta al fabricante oficial. La interfaz la enmascara; no se guarda en el diagnóstico, historial ni exportaciones. La consulta normal por modelo no envía la serie. Las series vacías o genéricas de BIOS se descartan.
-
-Otros fabricantes ofrecen su portal oficial cuando no hay un servicio de catálogo verificado. No se presenta una búsqueda genérica como resultado específico del modelo. Los drivers genéricos de Microsoft dirigen al Catálogo Microsoft Update; soporte Surface corresponde solo a un equipo Surface identificado.
-
-## Datos locales
-
-Los diagnósticos y el registro de guías se guardan en `%LocalAppData%\FlyyOptimizer\reports`. No se suben a un servicio. Los informes contienen hardware, modelo/SKU, nombres de procesos y aplicaciones de inicio: revísalos antes de compartirlos. Las rutas de perfil en comandos de inicio se anonimizan. No se consultan hostname ni nombre de usuario. La serie se usa únicamente en la búsqueda explícita de soporte descrita arriba.
-
-Un informe dañado no oculta los otros informes válidos. La app conserva un registro de guías dañado y muestra el error en lugar de sobrescribirlo silenciosamente.
-
-Varias instancias pueden escribir y refrescar las guías compartidas sin sobrescribir los registros de otra instancia.
-
-Las herramientas de optimización guardan respaldos locales para restaurar ajustes y entradas de inicio. Esos respaldos conservan los valores y comandos originales necesarios para deshacer. Un cambio externo posterior puede impedir la restauración automática para no sobrescribirlo. El análisis y la apertura de la app no aplican ajustes ni limpian archivos; cada acción se inicia desde su control correspondiente.
-
-## Verificación desde código
-
-```powershell
-dotnet test FlyyOptimizer.sln
-dotnet build FlyyOptimizer.sln -c Release
-dotnet run --project src/FlyyOptimizer.App -- --scan "$env:TEMP\flyy-scan.json"
-dotnet run --project src/FlyyOptimizer.App -- --smoke-test "$env:TEMP\flyy-smoke"
+```text
+artifacts/FlyyOptimizer-win-x64/
+artifacts/FlyyOptimizer-win-x64.zip
 ```
 
-Estos comandos no aplican optimizaciones al equipo. Los modos `--render <png>` y `--smoke-test <directorio>` permiten revisar el render real de WPF. El modo de prueba usa un historial aislado dentro del directorio de salida.
+El SDK se necesita para desarrollar y compilar; el runtime viene integrado en la distribución para usuarios. Los archivos de `artifacts/` quedan fuera del repositorio.
 
-Después de compilar, `./scripts/verify-portable.ps1` comprueba la estructura de dos elementos, las licencias y el recurso fijado; compara todos los archivos del ZIP con la publicación y ejecuta el ZIP extraído desde una ruta con espacios, sin búsqueda del SDK y con un directorio de trabajo diferente. Verifica el análisis, la interfaz y los contratos de elevación sin aplicar optimizaciones, descargar drivers ni abrir UAC.
+## Verificar
 
-## Referencias
+```powershell
+dotnet test FlyyOptimizer.sln -c Release
+.\scripts\verify-portable.ps1
+```
 
-Consulta [la investigación de GitHub, Reddit y Microsoft](docs/research/2026-10-13-referencias.md), [las herramientas integradas](docs/native-tools.md), [el colector incluido](docs/bundled-gaming.md), [el tema y movimiento](docs/apple-theme-motion.md) y [la verificación de esta versión](docs/self-contained-verification.md). Los proyectos usados como inspiración no se ejecutan ni importan como presets.
+La verificación portable compara los archivos del ZIP con la publicación y ejecuta la copia extraída desde una ruta con espacios, sin buscar el SDK. Comprueba el análisis, la interfaz y los contratos de elevación sin aplicar optimizaciones ni descargar drivers.
 
-Las dependencias y avisos están en [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Esta primera versión requiere pruebas adicionales en otros modelos de hardware antes de una distribución amplia.
+## Datos y compatibilidad
+
+Los diagnósticos y respaldos se guardan localmente en `%LocalAppData%\FlyyOptimizer`. La consulta por modelo no envía la serie del equipo; la búsqueda por serie es una acción explícita y la serie no se guarda en los informes.
+
+Las temperaturas dependen de los sensores accesibles. El análisis no instala controladores de sensores. La consulta de Windows Update respeta las políticas del sistema; el catálogo Lenovo muestra paquetes del modelo y no determina por sí solo que un driver instalado esté desactualizado. Para otros fabricantes se ofrece su portal oficial cuando no hay un catálogo integrado verificado.
+
+La limpieza de archivos temporales no se puede deshacer. Los ajustes de energía pueden aumentar consumo, ruido y temperatura. Esta versión necesita validación en más modelos de hardware.
+
+## Documentación y referencias
+
+- [Guía detallada de uso](docs/user-guide.md)
+- [Controles de rendimiento y Fortnite](docs/performance-focused.md)
+- [Herramientas nativas y restauración](docs/native-tools.md)
+- [Interfaz y animaciones](docs/apple-theme-motion.md)
+- [Investigación de GitHub, Reddit y Microsoft](docs/research/2026-10-13-referencias.md)
+- [Dependencias, atribuciones y licencias de terceros](THIRD-PARTY-NOTICES.md)
+
+La selección de ajustes toma como referencia **Optimizer**, **Chris Titus Tech WinUtil** y la documentación de Microsoft. FlyyOptimizer implementa sus propios controles nativos; la selección fijada de WinUtil y sus atribuciones se incluyen en el proyecto.
