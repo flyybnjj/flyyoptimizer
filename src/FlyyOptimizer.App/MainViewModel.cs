@@ -16,6 +16,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly ViewModelServices services;
     private readonly bool processElevated;
     private readonly OperationLifetime lifetime = new();
+    private readonly OperationLifetime appUpdateLifetime = new();
     private readonly List<MetricSample> liveSamples = [];
     private bool busy;
     private bool scanning;
@@ -51,6 +52,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         store = new ReportStore(reportDirectory);
         this.services = services;
         processElevated = services.IsElevated();
+        var version = services.InstalledAppVersion;
+        AppUpdate = new(services.AppUpdates, appUpdateLifetime, () => CanStartOperation, new Version(version.Major, version.Minor, Math.Max(0, version.Build), Math.Max(0, version.Revision)));
+        AppUpdate.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(AppUpdate.IsRestarting)) { Changed(nameof(CanStartOperation)); CommandManager.InvalidateRequerySuggested(); }
+        };
         Tools = new(services.CreateNativeTools(), RunBusyAsync, () => CanStartOperation);
         Fortnite = new(services.CreateFortniteProfile(), RunBusyAsync, () => CanStartOperation, Tools.RefreshStateAsync, services.ChooseFortniteFolder, services.ConfirmOptimization);
         Fortnite.PropertyChanged += (_, change) => { if (change.PropertyName == nameof(Fortnite.Status)) Status = string.IsNullOrEmpty(Fortnite.Status) ? "Listo para optimizar." : Fortnite.Status; };
@@ -110,6 +117,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand ClearErrorCommand { get; }
     public event Action<string>? SectionNavigationRequested;
     public ToolsViewModel Tools { get; }
+    public AppUpdateViewModel AppUpdate { get; }
     public FortniteViewModel Fortnite { get; }
     public ObservableCollection<DriverInfo> Drivers { get; } = [];
     public System.ComponentModel.ICollectionView DriversView { get; }
@@ -120,7 +128,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<SavedReport> Reports { get; } = [];
     public ObservableCollection<ActionRecord> Actions { get; } = [];
     public SystemSnapshot? Snapshot => snapshot;
-    public bool IsBusy { get => busy; private set { if (Set(ref busy, value)) { Changed(nameof(IsIdle)); Changed(nameof(IsBackgroundBusy)); CommandManager.InvalidateRequerySuggested(); } } }
+    public bool IsBusy { get => busy; private set { if (Set(ref busy, value)) { Changed(nameof(IsIdle)); Changed(nameof(IsBackgroundBusy)); AppUpdate.RefreshAvailability(); CommandManager.InvalidateRequerySuggested(); } } }
     public bool IsIdle => !IsBusy;
     public bool IsBackgroundBusy => IsBusy && !IsScanning;
     public bool IsScanning { get => scanning; private set { if (Set(ref scanning, value)) Changed(null); } }
@@ -132,7 +140,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public double ScanPercent => scanProgress.TotalSteps > 0 ? Math.Clamp(100d * scanProgress.CompletedSteps / scanProgress.TotalSteps, 0, 100) : 0;
     public string ScanPercentLabel => $"{ScanPercent:N0}% · {scanProgress.CompletedSteps}/{scanProgress.TotalSteps} pasos completados";
     public bool IsClosing => lifetime.IsStopping;
-    public bool CanStartOperation => !IsBusy && !IsClosing;
+    public bool CanStartOperation => !IsBusy && !IsClosing && !AppUpdate.IsRestarting;
     public bool HasSnapshot => snapshot is not null;
     public bool HasNotes => snapshot?.Notes.Count > 0;
     public bool HasFindings => Findings.Count > 0;
@@ -198,6 +206,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
     public SavedReport? SelectedReport { get => selectedReport; set { Set(ref selectedReport, value); CommandManager.InvalidateRequerySuggested(); } }
     internal Task WaitForFortniteDetectionAsync() => (Task?)fortniteDetection ?? Task.CompletedTask;
+    public Task StartAppUpdateCheckAsync() => AppUpdate.CheckAsync();
+    internal bool TryStartAppUpdate()
+    {
+        if (IsBusy || IsClosing || !AppUpdate.IsRestarting || AppUpdate.PreparedUpdate is not { } update) return false;
+        try { services.LaunchAppUpdate(services.PrepareAppUpdate(update)); return true; }
+        catch (Exception ex) { AppUpdate.RestartFailed(ex); return false; }
+    }
     public SessionDisplay? SessionA { get => sessionA; private set { Set(ref sessionA, value); Changed(null); } }
     public SessionDisplay? SessionB { get => sessionB; private set { Set(ref sessionB, value); Changed(null); } }
     public IReadOnlyList<FindingRow> Findings { get; private set; } = [];
@@ -650,10 +665,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public async Task PrepareToCloseAsync()
     {
         var cleanup = lifetime.StopAsync();
+        var updateCleanup = appUpdateLifetime.StopAsync();
         Changed(nameof(IsClosing)); Changed(nameof(CanStartOperation));
+        AppUpdate.RefreshAvailability();
         Status = IsBusy ? "Cerrando: esperando que la operación y su limpieza terminen…" : "Cerrando…";
         CommandManager.InvalidateRequerySuggested();
-        await cleanup;
+        await Task.WhenAll(cleanup, updateCleanup);
     }
-    public void Dispose() => lifetime.Cancel();
+    public void Dispose() { lifetime.Cancel(); appUpdateLifetime.Cancel(); }
 }

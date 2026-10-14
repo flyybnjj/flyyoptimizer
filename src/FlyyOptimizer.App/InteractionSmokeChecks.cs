@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Diagnostics;
 
 namespace FlyyOptimizer.App;
 
@@ -389,7 +390,172 @@ internal static class InteractionSmokeChecks
         closingProfile.ReleaseRecovery.TrySetResult();
         await applyingProfile; await profileClose;
         Check(closingProfileModel.IsClosing && closingProfileModel.Fortnite.HasChanges && closingProfile.PreviewTokens[^1] == CancellationToken.None && !closingProfileModel.Fortnite.UndoCommand.CanExecute(null), "Closing finishes profile recovery with backups visible and all new profile actions blocked");
+        await CheckAppUpdatesAsync(directory, dispatcher, Check);
         return checks;
+    }
+
+    private static async Task CheckAppUpdatesAsync(string directory, Dispatcher dispatcher, Action<bool, string> check)
+    {
+        var updater = new FixtureAppUpdateService();
+        var helperFails = true;
+        var helperLaunched = false;
+        var mainStillOpenAtLaunch = false;
+        var operationsBlockedAtLaunch = false;
+        var scanStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var scanRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        MainWindow? window = null;
+        using var model = new MainViewModel(Path.Combine(directory, "app-update-history"), new ViewModelServices
+        {
+            CreateNativeTools = () => new FixtureOptimizationService(),
+            CreateFortniteProfile = () => new FixtureFortniteProfileService(directory),
+            ResolvePresentMon = () => Environment.ProcessPath!, IsElevated = () => false,
+            AppUpdates = updater,
+            FindOem = (_, _, _) => Task.FromResult(new OemSupportResult(false, "Fixture", "Fixture", "", [], "Fixture no model", false)),
+            PrepareAppUpdate = update => new ProcessStartInfo("fixture-helper") { Arguments = update.ArchivePath },
+            LaunchAppUpdate = start =>
+            {
+                if (helperFails) throw new InvalidOperationException("Fixture helper locked");
+                helperLaunched = start.FileName == "fixture-helper";
+                mainStillOpenAtLaunch = window?.IsVisible == true && !modelClosing();
+                operationsBlockedAtLaunch = window?.DataContext is MainViewModel launchModel && !launchModel.ScanCommand.CanExecute(null) && !launchModel.Tools.RefreshCommand.CanExecute(null);
+            },
+            Collect = async (_, token, _) =>
+            {
+                scanStarted.TrySetResult(); await scanRelease.Task.WaitAsync(token);
+                return new SystemSnapshot();
+            }
+        });
+        bool modelClosing() => window?.DataContext is MainViewModel { IsClosing: true };
+        window = new MainWindow(model) { Width = 1240, Height = 820, ShowInTaskbar = false, ShowActivated = false, Left = -10000, Top = -10000 };
+        window.Show();
+        check(!model.AppUpdate.IsWorking && model.AppUpdate.Status == "Busca nuevas versiones en GitHub." && model.AppUpdate.InstalledVersion.Split('.').Length == 3 && !model.AppUpdate.RestartCommand.CanExecute(null), "App update is opt-in at normal startup and always displays the installed version");
+        await model.StartAppUpdateCheckAsync();
+        check(!model.AppUpdate.IsReady && !model.AppUpdate.HasError && model.AppUpdate.Status.Contains("actualizada"), "Verified no-update result reports current version without offering restart");
+        updater.Offer = new(new Version(9, 0, 0), "v9.0.0", "https://github.com/flyybnjj/flyyoptimizer/releases/download/v9.0.0/FlyyOptimizer-win-x64.zip", 100, new string('a', 64));
+        updater.BlockDownload = true;
+        var downloading = model.StartAppUpdateCheckAsync();
+        await updater.DownloadStarted.Task;
+        await dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
+        check(model.AppUpdate.IsDownloading && model.AppUpdate.ProgressPercent == 40 && model.AppUpdate.Status.Contains("9.0.0") && model.ScanCommand.CanExecute(null), "New app releases auto-download with progress while analysis remains available");
+        await RenderFixtureWindowAsync(window, Path.Combine(directory, "app-update-downloading.png"));
+        updater.ReleaseDownload.TrySetResult(); await downloading;
+        check(model.AppUpdate.IsReady && model.AppUpdate.RestartCommand.CanExecute(null) && !helperLaunched, "Verified automatic download waits for an explicit restart request");
+        check(VisibleText(window, true).Contains("Reiniciar y actualizar"), "Ready update exposes the explicit restart control in the actual sidebar");
+        await RenderFixtureWindowAsync(window, Path.Combine(directory, "app-update-ready.png"));
+        window.Width = window.MinWidth; window.Height = window.MinHeight;
+        await RenderFixtureWindowAsync(window, Path.Combine(directory, "app-update-ready-minimum.png"));
+        check(Visuals<Button>(window).Where(button => button.Command == model.AppUpdate.RestartCommand || button.Command == model.AppUpdate.CheckCommand).All(button => FitsWindow(window, button)), "Ready app update controls fit completely inside the minimum-size window");
+        var scan = model.ScanAsync(); await scanStarted.Task;
+        check(!model.AppUpdate.RestartCommand.CanExecute(null), "An active analysis disables app restart without losing the prepared update");
+        model.AppUpdate.RestartCommand.Execute(null);
+        check(!helperLaunched && !model.IsClosing, "Programmatic restart during analysis cannot launch a helper or close the app");
+        scanRelease.TrySetResult(); await scan;
+        model.AppUpdate.RestartCommand.Execute(null);
+        check(model.AppUpdate.HasError && model.AppUpdate.IsReady && !model.IsClosing && window.IsEnabled && model.AppUpdate.RestartCommand.CanExecute(null), "Helper launch failure leaves the app open and the prepared update retryable");
+        await RenderFixtureWindowAsync(window, Path.Combine(directory, "app-update-restart-error.png"));
+        Visuals<Expander>(window).Single(expander => expander.Header?.ToString() == "Ver error" && expander.IsVisible).IsExpanded = true;
+        await RenderFixtureWindowAsync(window, Path.Combine(directory, "app-update-restart-error-expanded.png"));
+        var navigation = Visuals<ListBox>(window).First();
+        check(navigation.Items.OfType<ListBoxItem>().All(item => FitsWindow(window, item)) && Visuals<Button>(window).Where(button => button.Command == model.AppUpdate.RestartCommand || button.Command == model.AppUpdate.CheckCommand).All(button => FitsWindow(window, button)), "Expanded app update error preserves six navigation items and restart controls at minimum size");
+        helperFails = false;
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        window.Closed += (_, _) => closed.TrySetResult();
+        model.AppUpdate.RestartCommand.Execute(null);
+        await closed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        check(helperLaunched && mainStillOpenAtLaunch && operationsBlockedAtLaunch && model.IsClosing && !model.CanStartOperation, "Explicit restart launches the staged helper before safe close and blocks further PC operations");
+
+        var failing = new FixtureAppUpdateService { CheckFails = true };
+        using var failureModel = AppUpdateFixtureModel(directory, "app-update-error", failing);
+        await failureModel.StartAppUpdateCheckAsync();
+        check(failureModel.AppUpdate.HasError && !failureModel.AppUpdate.IsReady && failureModel.AppUpdate.CheckCommand.CanExecute(null) && failureModel.ScanCommand.CanExecute(null), "Release query errors offer retry and leave PC analysis usable");
+        failing.CheckFails = false; failing.Offer = updater.Offer; failing.DownloadFails = true;
+        await failureModel.StartAppUpdateCheckAsync();
+        check(failureModel.AppUpdate.HasError && !failureModel.AppUpdate.IsReady && !failureModel.AppUpdate.RestartCommand.CanExecute(null), "Failed app download never exposes an unverified package as ready");
+        failing.DownloadFails = false; await failureModel.StartAppUpdateCheckAsync();
+        check(failureModel.AppUpdate.IsReady && !failureModel.AppUpdate.HasError, "Retry recovers from download failure and only then enables restart");
+
+        var revisionVersion = new Version(1, 1, 0, 1);
+        var revisionUpdater = new FixtureAppUpdateService { Offer = new(revisionVersion, "v1.1.0.1", updater.Offer.AssetUrl, 100, new string('b', 64)) };
+        using var revisionModel = AppUpdateFixtureModel(directory, "app-update-revision", revisionUpdater, revisionVersion);
+        await revisionModel.StartAppUpdateCheckAsync();
+        check(!revisionModel.AppUpdate.IsReady && !revisionModel.AppUpdate.HasError && revisionModel.AppUpdate.Status.Contains("actualizada"), "An installed four-part version does not download the same release again");
+        check(revisionModel.AppUpdate.InstalledVersion == "1.1.0.1", "Installed nonzero revision remains visible instead of showing a different three-part version");
+
+        var cancelling = new FixtureAppUpdateService { Offer = updater.Offer, BlockDownload = true, WaitForCancellationCleanup = true };
+        using var cancelModel = AppUpdateFixtureModel(directory, "app-update-cancel", cancelling);
+        var pendingDownload = cancelModel.StartAppUpdateCheckAsync(); await cancelling.DownloadStarted.Task;
+        cancelModel.AppUpdate.CancelCommand.Execute(null); await cancelling.Cancelled.Task;
+        check(!pendingDownload.IsCompleted && !cancelModel.AppUpdate.IsReady, "Cancelling app download waits for partial-file cleanup and never marks it ready");
+        cancelling.ReleaseCleanup.TrySetResult(); await pendingDownload;
+        check(!cancelModel.AppUpdate.HasError && !cancelModel.AppUpdate.IsReady && cancelModel.AppUpdate.CheckCommand.CanExecute(null) && cancelModel.AppUpdate.Status.Contains("cancelada"), "Cancelled app download offers a fresh check without a false error or ready state");
+
+        var closing = new FixtureAppUpdateService { Offer = updater.Offer, BlockDownload = true, WaitForCancellationCleanup = true };
+        using var closingModel = AppUpdateFixtureModel(directory, "app-update-close", closing);
+        var closeDownload = closingModel.StartAppUpdateCheckAsync(); await closing.DownloadStarted.Task;
+        var close = closingModel.PrepareToCloseAsync(); await closing.Cancelled.Task;
+        check(!close.IsCompleted && closingModel.IsClosing && !closingModel.AppUpdate.CheckCommand.CanExecute(null) && !closingModel.AppUpdate.RestartCommand.CanExecute(null), "Closing cancels the separate app download and blocks retries until cleanup completes");
+        closing.ReleaseCleanup.TrySetResult(); await closeDownload; await close;
+        check(!closingModel.AppUpdate.IsReady && !closingModel.AppUpdate.IsWorking && !closingModel.CanStartOperation, "Safe close awaits app download cleanup without exposing a partial package");
+    }
+
+    private static IEnumerable<T> Visuals<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root is T match) yield return match;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            foreach (var item in Visuals<T>(VisualTreeHelper.GetChild(root, i))) yield return item;
+    }
+
+    private static bool FitsWindow(Window window, FrameworkElement element)
+    {
+        if (!element.IsVisible || window.Content is not FrameworkElement content) return false;
+        var bounds = element.TransformToAncestor(content).TransformBounds(new Rect(element.RenderSize));
+        return bounds.Top >= 0 && bounds.Left >= 0 && bounds.Right <= content.ActualWidth && bounds.Bottom <= content.ActualHeight;
+    }
+
+    private static MainViewModel AppUpdateFixtureModel(string directory, string name, IAppUpdateService updater, Version? installedVersion = null) => new(Path.Combine(directory, name), new ViewModelServices
+    {
+        CreateNativeTools = () => new FixtureOptimizationService(), CreateFortniteProfile = () => new FixtureFortniteProfileService(directory),
+        ResolvePresentMon = () => Environment.ProcessPath!, IsElevated = () => false, AppUpdates = updater,
+        InstalledAppVersion = installedVersion ?? typeof(MainViewModel).Assembly.GetName().Version!,
+        PrepareAppUpdate = _ => throw new InvalidOperationException("Unexpected fixture helper preparation"),
+        LaunchAppUpdate = _ => throw new InvalidOperationException("Unexpected fixture helper launch")
+    });
+
+    private sealed class FixtureAppUpdateService : IAppUpdateService
+    {
+        public AppRelease? Offer { get; set; }
+        public bool CheckFails { get; set; }
+        public bool DownloadFails { get; set; }
+        public bool BlockDownload { get; set; }
+        public bool WaitForCancellationCleanup { get; set; }
+        public TaskCompletionSource DownloadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseDownload { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseCleanup { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task<AppRelease?> CheckAsync(Version currentVersion, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (CheckFails) throw new InvalidOperationException("Fixture GitHub unavailable");
+            var normalizedCurrent = new Version(currentVersion.Major, currentVersion.Minor, Math.Max(0, currentVersion.Build), Math.Max(0, currentVersion.Revision));
+            return Task.FromResult(Offer is not null && Offer.Version > normalizedCurrent ? Offer : null);
+        }
+        public async Task<PreparedAppUpdate> DownloadAsync(AppRelease release, IProgress<AppUpdateProgress>? progress = null, CancellationToken cancellationToken = default)
+        {
+            if (DownloadFails) throw new InvalidOperationException("Fixture archive hash invalid");
+            progress?.Report(new(40, 100)); DownloadStarted.TrySetResult();
+            if (BlockDownload)
+            {
+                try { await ReleaseDownload.Task.WaitAsync(cancellationToken); }
+                catch (OperationCanceledException)
+                {
+                    Cancelled.TrySetResult();
+                    if (WaitForCancellationCleanup) await ReleaseCleanup.Task;
+                    throw;
+                }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(release, "fixture-verified.zip");
+        }
     }
 
     private static IEnumerable<string> VisibleText(DependencyObject root, bool visibleOnly = false)

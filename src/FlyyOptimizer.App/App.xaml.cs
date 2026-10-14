@@ -16,6 +16,21 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
+            if (e.Args.FirstOrDefault() == "--apply-update")
+            {
+                try
+                {
+                    if (e.Args.Length != 2) throw new ArgumentException("El instalador necesita un trabajo de actualización válido.");
+                    await PortableAppUpdater.ApplyFromJobAsync(e.Args[1]);
+                    Shutdown(0);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"FlyyOptimizer no pudo aplicar la actualización. {ex.Message}", "Error de actualización de FlyyOptimizer", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Shutdown(1);
+                }
+                return;
+            }
             var driverMode = e.Args.Length == 1 && e.Args[0] == "--drivers";
             if (e.Args.Length > 0 && !driverMode)
             {
@@ -42,6 +57,7 @@ public partial class App : Application
             MainWindow = window;
             window.Closed += (_, _) => { if (e.Args.Length == 0 || driverMode) Shutdown(0); };
             window.Show();
+            if (e.Args.Length == 0 || driverMode) _ = model.StartAppUpdateCheckAsync();
             await model.InitializeAsync();
             if (e.Args.Length == 0 || driverMode)
             { if (driverMode) model.SelectedPage = 2; ShutdownMode = ShutdownMode.OnMainWindowClose; return; }

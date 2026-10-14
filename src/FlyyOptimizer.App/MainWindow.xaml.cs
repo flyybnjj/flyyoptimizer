@@ -17,7 +17,13 @@ public partial class MainWindow : Window
         DataContext = model;
         Closing += HandleClosing;
         model.SectionNavigationRequested += NavigateToSection;
-        Closed += (_, _) => model.SectionNavigationRequested -= NavigateToSection;
+        model.AppUpdate.RestartRequested += RestartWithUpdate;
+        Closed += (_, _) => { model.SectionNavigationRequested -= NavigateToSection; model.AppUpdate.RestartRequested -= RestartWithUpdate; };
+    }
+
+    private void RestartWithUpdate()
+    {
+        if (!closingRequested && model.TryStartAppUpdate()) Close();
     }
 
     private void NavigateToSection(string name)

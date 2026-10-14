@@ -2,12 +2,20 @@ using FlyyOptimizer.Core;
 using FlyyOptimizer.Windows;
 using FlyyOptimizer.Gaming;
 using System.IO;
+using System.Diagnostics;
 
 namespace FlyyOptimizer.App;
 
 
 internal sealed class ViewModelServices
 {
+    public IAppUpdateService AppUpdates { get; init; } = new AppUpdateService();
+    public Version InstalledAppVersion { get; init; } = typeof(MainViewModel).Assembly.GetName().Version ?? new Version(1, 1, 0, 0);
+    public Func<PreparedAppUpdate, ProcessStartInfo> PrepareAppUpdate { get; init; } = PortableAppUpdater.CreateStartInfo;
+    public Action<ProcessStartInfo> LaunchAppUpdate { get; init; } = start =>
+    {
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows no pudo abrir el instalador de FlyyOptimizer.");
+    };
     public Func<IProgress<string>?, CancellationToken, IProgress<ScanProgress>?, Task<SystemSnapshot>> Collect { get; init; } =
         (progress, token, detailed) => new WindowsCollector().CollectAsync(progress, token, detailed);
     public Func<CancellationToken, Task<DriverUpdateResult>> FindUpdates { get; init; } =
