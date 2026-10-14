@@ -2,9 +2,11 @@
 
 App de escritorio en español para Windows 11 x64. Analiza el equipo, muestra evidencia de oportunidades de rendimiento, reúne información de drivers y permite comparar sesiones gaming.
 
+La interfaz usa superficies claras, tipografía Segoe UI Variable y transiciones nativas al navegar y usar controles. El movimiento respeta la preferencia de animaciones de Windows y el modo de alto contraste.
+
 ## Abrir la app
 
-En la distribución portable, extrae toda la carpeta y abre `FlyyOptimizer.exe`. La distribución self-contained incluye .NET; no requiere instalar el SDK. Conserva los DLL y archivos de licencia junto al ejecutable.
+En la distribución portable, extrae toda la carpeta y abre `FlyyOptimizer.exe`. El paquete incluye .NET y la consola de medición PresentMon; el usuario no necesita instalar SDK, WinUtil, Optimizer ni utilidades de captura aparte. Conserva los DLL, la carpeta `tools` y las licencias junto al ejecutable.
 
 Desde el proyecto:
 
@@ -18,15 +20,17 @@ Para compilar necesitas el SDK .NET 10. El script también reconoce el SDK aisla
 ## Uso
 
 1. Pulsa **Analizar equipo**. Sigue las etapas y los recursos en vivo mientras se identifica si es portátil o escritorio, el fabricante, el modelo comercial y el SKU. Las lecturas son reales y puedes cancelar.
-2. Revisa **Hardware** y **Mejoras**. Cada recomendación explica sus lecturas y ofrece un siguiente paso cuando corresponde.
+2. Revisa **Hardware** y **Mejoras**. Además de recomendaciones con evidencia, las herramientas permiten seleccionar un plan de energía existente, gestionar entradas de inicio del usuario y reducir animaciones. Los cambios elegidos guardan su estado anterior para deshacerlos.
 3. En **Drivers**, consulta las versiones instaladas y las ofertas de Windows Update. Para Lenovo, el análisis consulta también el catálogo oficial del modelo/SKU. Puedes filtrar sus paquetes y abrir su ficha o descarga oficial. La fecha de un driver no demuestra que esté desactualizado.
-4. Las guías abren Inicio, Almacenamiento, Energía, Windows Update o soporte oficial. Los cambios se eligen en esas herramientas. El historial registra la apertura de la guía, no supone que aplicaste un ajuste.
-5. En **Gaming**, importa un CSV de PresentMon o selecciona su ejecutable de consola oficial y el proceso de la lista para capturarlo. También puedes escribir el PID manualmente. Compara sesiones del mismo juego y escenario.
+4. Usa la vista previa de temporales para elegir archivos a eliminar y comprobar espacio recuperado/archivos omitidos. Los archivos eliminados no se pueden deshacer. Las guías de Windows siguen disponibles y su historial registra únicamente que se abrieron.
+5. En **Gaming**, configura Modo Juego y capturas Xbox, o selecciona el proceso para medir una sesión con el colector incluido. También puedes importar un CSV o escribir el PID manualmente. Compara sesiones del mismo juego y escenario.
 6. Usa **Historial** para volver a un diagnóstico guardado y exporta un informe JSON o Markdown.
 
 ## Gaming y PresentMon
 
-Descarga la consola desde [las releases oficiales de PresentMon](https://github.com/GameTechDev/PresentMon/releases). La app no distribuye ni instala PresentMon automáticamente. La captura utiliza la CLI 2.3.1 o posterior con métricas v1 y puede requerir permisos del grupo Performance Log Users o administrador para ETW. Los errores se muestran en la app.
+La distribución incluye la consola x64 oficial PresentMon 2.6.0, cuya procedencia es [la release oficial](https://github.com/GameTechDev/PresentMon/releases/tag/v2.6.0). FlyyOptimizer valida el binario incluido y lo resuelve automáticamente. La captura funciona sin descargar utilidades en el primer uso. ETW puede necesitar permisos del grupo Performance Log Users o administrador de Windows. Si Windows rechaza la captura por permisos y la app no está elevada, aparece **Abrir Flyy como administrador**: el usuario puede abrir otra ventana de Flyy con el diálogo de permisos de Windows, conservando la ventana y sesión actuales.
+
+Si se pierde o altera el binario incluido, extrae nuevamente el paquete completo de FlyyOptimizer. No se sustituye automáticamente por otro ejecutable ni se pide instalar una aplicación externa.
 
 El CSV debe corresponder a un proceso y una cadena de presentación. Mezclar varias cadenas o juegos distorsiona los tiempos, por lo que el importador rechaza mezclas identificables. Admite cabeceras compatibles de PresentMon y omite filas de tiempo inválido, indicando su número.
 
@@ -67,6 +71,8 @@ Un informe dañado no oculta los otros informes válidos. La app conserva un reg
 
 Varias instancias pueden escribir y refrescar las guías compartidas sin sobrescribir los registros de otra instancia.
 
+Las herramientas de optimización guardan respaldos locales para restaurar ajustes y entradas de inicio. Esos respaldos conservan los valores y comandos originales necesarios para deshacer. Un cambio externo posterior puede impedir la restauración automática para no sobrescribirlo. El análisis y la apertura de la app no aplican ajustes ni limpian archivos; cada acción se inicia desde su control correspondiente.
+
 ## Verificación desde código
 
 ```powershell
@@ -80,6 +86,6 @@ Estos comandos no aplican optimizaciones al equipo. Los modos `--render <png>` y
 
 ## Referencias
 
-Consulta [la investigación de GitHub, Reddit y Microsoft](docs/research/2026-10-13-referencias.md), [el diseño](docs/superpowers/specs/2026-10-13-flyyoptimizer-design.md) y [el plan](docs/superpowers/plans/2026-10-13-flyyoptimizer.md). Los proyectos usados como inspiración no se ejecutan ni importan como presets.
+Consulta [la investigación de GitHub, Reddit y Microsoft](docs/research/2026-10-13-referencias.md), [las herramientas integradas](docs/native-tools.md), [el colector incluido](docs/bundled-gaming.md), [el tema y movimiento](docs/apple-theme-motion.md) y [la verificación de esta versión](docs/self-contained-verification.md). Los proyectos usados como inspiración no se ejecutan ni importan como presets.
 
 Las dependencias y avisos están en [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Esta primera versión requiere pruebas adicionales en otros modelos de hardware antes de una distribución amplia.

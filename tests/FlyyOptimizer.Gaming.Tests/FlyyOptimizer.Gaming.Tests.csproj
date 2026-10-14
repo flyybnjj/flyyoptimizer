@@ -11,6 +11,7 @@
     <ProjectReference Include="../../src/FlyyOptimizer.Gaming/FlyyOptimizer.Gaming.csproj" />
     <ProjectReference Include="FakePresentMon/FakePresentMon.csproj" ReferenceOutputAssembly="false" />
     <None Include="Fixtures/**/*.csv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../assets/PresentMon/PresentMon.exe" Link="tools/PresentMon/PresentMon.exe" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="FakePresentMon/**/*.cs" />
   </ItemGroup>
   <Target Name="CopyFakeCaptureExecutable" AfterTargets="Build">

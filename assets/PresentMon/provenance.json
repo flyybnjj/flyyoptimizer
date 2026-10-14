@@ -1,0 +1,22 @@
+{
+  "component": "PresentMon standalone console",
+  "version": "2.6.0",
+  "platform": "Windows x64",
+  "upstream_repository": "https://github.com/GameTechDev/PresentMon",
+  "release": "https://github.com/GameTechDev/PresentMon/releases/tag/v2.6.0",
+  "release_published_at": "2026-09-21T17:30:36Z",
+  "download_url": "https://github.com/GameTechDev/PresentMon/releases/download/v2.6.0/PresentMon-2.6.0-x64.exe",
+  "upstream_asset_name": "PresentMon-2.6.0-x64.exe",
+  "packaged_asset_name": "PresentMon.exe",
+  "size_bytes": 980320,
+  "sha256": "B2A706BC6AD475749E3B7E3409263AA1E6906D45BDCF993F6DBC0F660188F1AF",
+  "upstream_digest": "sha256:b2a706bc6ad475749e3b7e3409263aa1e6906d45bdcf993f6dbc0f660188f1af",
+  "license": "MIT",
+  "license_file": "../../licenses/PresentMon-2.6.0-MIT.txt",
+  "license_source": "https://raw.githubusercontent.com/GameTechDev/PresentMon/v2.6.0/LICENSE.txt",
+  "authenticode_subject_at_acquisition": "CN=Intel Corporation, O=Intel Corporation, S=California, C=US",
+  "authenticode_status_at_acquisition": "Valid",
+  "acquired_on": "2026-10-14",
+  "required_system_dlls": ["KERNEL32.dll", "ADVAPI32.dll", "SHELL32.dll", "USER32.dll", "tdh.dll"],
+  "additional_native_files_required": []
+}

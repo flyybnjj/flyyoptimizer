@@ -138,6 +138,7 @@ public partial class App : Application
     private static async Task SettleLayoutAsync(MainWindow window)
     {
         await window.Dispatcher.InvokeAsync(window.UpdateLayout, DispatcherPriority.Loaded);
+        await Task.Delay(Motion.SettleMilliseconds);
         // A dispatcher idle callback alone can precede native WM_SIZE delivery on DPI-scaled desktops.
         // Await a presentation frame so the final size and selected page have reached layout.
         var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -161,7 +162,7 @@ public partial class App : Application
     }
     private static async Task RenderDeepViewsAsync(MainWindow window, MainViewModel model, string directory, string suffix)
     {
-        foreach (var (page, offset, name) in new[] { (2, 350d, "drivers-package"), (4, 290d, "gaming-capture") })
+        foreach (var (page, offset, name) in new[] { (2, 350d, "drivers-package"), (3, 380d, "improvements-startup"), (3, 770d, "improvements-cleanup"), (3, 1100d, "improvements-undo"), (4, 420d, "gaming-capture") })
         {
             model.SelectedPage = page;
             if (page == 2) model.SelectedOemPackage = model.OemPackages.FirstOrDefault();

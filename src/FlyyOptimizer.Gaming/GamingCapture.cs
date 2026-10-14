@@ -8,7 +8,7 @@ namespace FlyyOptimizer.Gaming;
 
 public sealed class GamingCapture
 {
-    /// <summary>Uses the user-selected official PresentMon console 2.3.1+ executable.</summary>
+    /// <summary>Uses the bundled official standalone PresentMon console executable.</summary>
     public async Task<GamingSession> CaptureAsync(string executable, int processId, int durationSeconds, string outputPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -21,7 +21,7 @@ public sealed class GamingCapture
         if (!string.Equals(Path.GetExtension(executablePath), ".exe", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Selecciona el ejecutable .exe de consola de PresentMon oficial.", nameof(executable));
         if (!File.Exists(executablePath))
-            throw new FileNotFoundException("No se encontró PresentMon. Puedes importar un CSV u obtener la consola oficial en https://github.com/GameTechDev/PresentMon/releases.", executablePath);
+            throw new FileNotFoundException("No se encontró el colector gaming incluido. Vuelve a extraer el paquete completo de FlyyOptimizer para recuperarlo.", executablePath);
         if (!string.Equals(Path.GetExtension(destination), ".csv", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("El archivo de salida debe tener extensión .csv.", nameof(outputPath));
         if (File.Exists(destination) || Directory.Exists(destination))
@@ -85,7 +85,7 @@ public sealed class GamingCapture
             {
                 var details = (await stderr.ConfigureAwait(false)).Trim();
                 if (details.Length == 0) details = (await stdout.ConfigureAwait(false)).Trim();
-                throw new InvalidOperationException($"PresentMon terminó con código {collector.ExitCode}. Comprueba permisos ETW y que hayas elegido la consola oficial 2.3.1 o posterior. {details}");
+                throw new InvalidOperationException($"El colector gaming terminó con código {collector.ExitCode}. Comprueba los permisos ETW de Windows y que el proceso siga activo. {details}");
             }
             if (!File.Exists(temporaryCsv)) throw new InvalidDataException("PresentMon no generó un CSV. Comprueba que el PID siga activo y esté presentando frames.");
             var session = await Task.Run(() => PresentMonCsv.Parse(temporaryCsv, cancellationToken), cancellationToken).ConfigureAwait(false);

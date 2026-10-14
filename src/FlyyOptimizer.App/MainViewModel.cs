@@ -14,6 +14,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ReportStore store;
     private readonly ViewModelServices services;
+    private readonly bool processElevated;
     private readonly OperationLifetime lifetime = new();
     private readonly List<MetricSample> liveSamples = [];
     private bool busy;
@@ -25,7 +26,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string error = "";
     private string driverSearch = "";
     private string updateStatus = "Consulta las ofertas de Windows Update cuando lo necesites.";
-    private string presentMonPath = "";
+    private string collectorStatus = "El colector gaming viene incluido con FlyyOptimizer.";
+    private bool hasBundledCollector;
     private string processId = "";
     private string captureDuration = "30";
     private string captureError = "";
@@ -46,6 +48,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         store = new ReportStore(reportDirectory);
         this.services = services;
+        processElevated = services.IsElevated();
+        Tools = new(services.CreateNativeTools(), RunBusyAsync, () => CanStartOperation);
+        Tools.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(Tools.Status)) Status = Tools.Status;
+            else if (change.PropertyName == nameof(Tools.CleanupStatus)) Status = Tools.CleanupStatus;
+        };
+        RefreshCollectorState();
         DriversView = CollectionViewSource.GetDefaultView(Drivers);
         DriversView.Filter = item => item is DriverInfo driver && (string.IsNullOrWhiteSpace(DriverSearch) || $"{driver.DeviceName} {driver.Provider} {driver.Manufacturer} {driver.DeviceClass} {driver.Version}".Contains(DriverSearch.Trim(), StringComparison.OrdinalIgnoreCase));
         ScanCommand = Command(_ => ScanAsync(), _ => CanStartOperation);
@@ -64,9 +74,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         RefreshHistoryCommand = Command(async _ => { await RunBusyAsync("Leyendo historial…", async _ => { await RefreshHistoryAsync(); Status = "Historial actualizado."; }); }, _ => CanStartOperation);
         LoadReportCommand = Command(_ => LoadReportAsync(), _ => CanStartOperation && SelectedReport is not null);
         ImportSessionCommand = Command(ImportSessionAsync, parameter => CanStartOperation && (parameter?.ToString() != "B" || HasSessionA));
-        ChoosePresentMonCommand = new RelayCommand(_ => ChoosePresentMon(), _ => CanStartOperation);
-        CaptureCommand = Command(_ => CaptureAsync(), _ => CanStartOperation);
-        OpenPresentMonCommand = Command(_ => OpenPresentMonAsync(), _ => CanStartOperation);
+        CaptureCommand = Command(_ => CaptureAsync(), _ => CanStartOperation && HasBundledCollector);
+        OpenElevatedCommand = Command(_ => OpenElevatedAsync(), _ => CanStartOperation && CanRequestCaptureElevation);
         RefreshProcessesCommand = Command(_ => RefreshProcessesAsync(), _ => CanStartOperation);
         NavigateCommand = new RelayCommand(parameter => { if (int.TryParse(parameter?.ToString(), out var index) && index is >= 0 and <= 5) SelectedPage = index; });
         ClearErrorCommand = new RelayCommand(_ => Error = "");
@@ -86,12 +95,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand RefreshHistoryCommand { get; }
     public ICommand LoadReportCommand { get; }
     public ICommand ImportSessionCommand { get; }
-    public ICommand ChoosePresentMonCommand { get; }
     public ICommand CaptureCommand { get; }
-    public ICommand OpenPresentMonCommand { get; }
+    public ICommand OpenElevatedCommand { get; }
     public ICommand RefreshProcessesCommand { get; }
     public ICommand NavigateCommand { get; }
     public ICommand ClearErrorCommand { get; }
+    public ToolsViewModel Tools { get; }
     public ObservableCollection<DriverInfo> Drivers { get; } = [];
     public System.ComponentModel.ICollectionView DriversView { get; }
     public ObservableCollection<DriverUpdateInfo> Updates { get; } = [];
@@ -151,11 +160,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public string SerialDisplay => string.IsNullOrWhiteSpace(oemResult?.SerialDisplay) ? "" : $"Serie consultada: {oemResult.SerialDisplay}";
     public bool HasSerialDisplay => !string.IsNullOrWhiteSpace(oemResult?.SerialDisplay);
     public OemDriverPackage? SelectedOemPackage { get => selectedOemPackage; set { if (Set(ref selectedOemPackage, value)) { Changed(nameof(HasSelectedOemPackage)); Changed(nameof(CanOpenOemPackage)); Changed(nameof(OemPackageActionLabel)); Changed(nameof(OemSelectedSourceUrl)); CommandManager.InvalidateRequerySuggested(); } } }
-    public string PresentMonPath { get => presentMonPath; set { if (Set(ref presentMonPath, value)) CaptureError = ""; } }
+    public string CollectorStatus => collectorStatus;
+    public bool HasBundledCollector => hasBundledCollector;
     public string ProcessId { get => processId; set { if (Set(ref processId, value)) { CaptureError = ""; if (selectedProcess is not null && selectedProcess.Id.ToString() != value) { selectedProcess = null; Changed(nameof(SelectedProcess)); } } } }
     public string CaptureDuration { get => captureDuration; set { if (Set(ref captureDuration, value)) CaptureError = ""; } }
-    public string CaptureError { get => captureError; private set { if (Set(ref captureError, value)) Changed(nameof(HasCaptureError)); } }
+    public string CaptureError { get => captureError; private set { if (Set(ref captureError, value)) { Changed(nameof(HasCaptureError)); Changed(nameof(CanRequestCaptureElevation)); CommandManager.InvalidateRequerySuggested(); } } }
     public bool HasCaptureError => !string.IsNullOrWhiteSpace(CaptureError);
+    public bool CanRequestCaptureElevation => !processElevated && HasCaptureError &&
+        (CaptureError.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
+         CaptureError.Contains("administrative privileges", StringComparison.OrdinalIgnoreCase) ||
+         CaptureError.Contains("acceso denegado", StringComparison.OrdinalIgnoreCase) ||
+         CaptureError.Contains("requiere permisos de administrador", StringComparison.OrdinalIgnoreCase));
     public ProcessChoice? SelectedProcess { get => selectedProcess; set { if (Set(ref selectedProcess, value) && value is not null) ProcessId = value.Id.ToString(); } }
     public int SelectedPage { get => selectedPage; set { if (Set(ref selectedPage, value)) { Changed(nameof(PageTitle)); Changed(nameof(PageDescription)); } } }
     public SavedReport? SelectedReport { get => selectedReport; set { Set(ref selectedReport, value); CommandManager.InvalidateRequerySuggested(); } }
@@ -163,13 +178,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public SessionDisplay? SessionB { get => sessionB; private set { Set(ref sessionB, value); Changed(null); } }
     public IReadOnlyList<FindingRow> Findings { get; private set; } = [];
     public IReadOnlyList<FindingRow> HighlightFindings => Findings.Take(3).ToList();
-    public string PageTitle => SelectedPage switch { 1 => "Hardware", 2 => "Drivers", 3 => "Mejoras guiadas", 4 => "Gaming", 5 => "Historial", _ => "Tu equipo, con evidencia" };
+    public string PageTitle => SelectedPage switch { 1 => "Hardware", 2 => "Drivers", 3 => "Mejoras", 4 => "Gaming", 5 => "Historial", _ => "Tu equipo, con evidencia" };
     public string PageDescription => SelectedPage switch
     {
         1 => "Inventario y recursos observados durante el análisis.",
         2 => "Revisa versiones, firmas e incidencias de tus dispositivos.",
-        3 => "Recomendaciones que puedes revisar en las herramientas oficiales.",
-        4 => "Mide la fluidez de un juego y compara el mismo escenario.",
+        3 => "Aplica ajustes concretos y conserva su estado anterior para deshacerlos.",
+        4 => "Ajusta Windows para jugar y mide la fluidez con el colector incluido.",
         5 => "Tus observaciones y las guías abiertas, guardadas en este equipo.",
         _ => "Entiende qué está pasando antes de cambiar algo."
     };
@@ -249,6 +264,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public async Task InitializeAsync()
     {
         await RunBusyAsync("Leyendo historial local…", async _ => { await RefreshHistoryAsync(); Status = "Listo para analizar. El diagnóstico no modifica tu equipo."; });
+        if (!IsClosing) await Tools.RefreshAsync();
     }
 
     public async Task<bool> ScanAsync()
@@ -406,10 +422,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (parameter is not DriverInfo driver || ManufacturerUrl(driver) is not { } url) return;
         await RunBusyAsync("Abriendo fuente oficial…", async _ => { services.Open(ActionKind.OpenManufacturer, url); await RecordGuideAsync("manufacturer", $"Fabricante: {Labels.Known(driver.Manufacturer)} / {driver.DeviceName}"); });
     }
-    private async Task OpenPresentMonAsync()
-    {
-        await RunBusyAsync("Abriendo PresentMon oficial…", async _ => { Process.Start(new ProcessStartInfo("https://github.com/GameTechDev/PresentMon/releases") { UseShellExecute = true }); await RecordGuideAsync("presentmon", "Fuente oficial de PresentMon"); });
-    }
     private async Task RecordGuideAsync(string id, string title)
     {
         Status = "Guía abierta. Los cambios se realizan en la herramienta oficial.";
@@ -454,11 +466,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Status = $"Sesión {(targetB ? "B" : "A")} importada: {session.FrameCount:N0} frames válidos.";
         });
     }
-    private void ChoosePresentMon()
-    {
-        var dialog = new OpenFileDialog { Title = "Seleccionar PresentMon de consola", Filter = "Ejecutable de PresentMon (*.exe)|*.exe", CheckFileExists = true };
-        if (dialog.ShowDialog() == true) PresentMonPath = dialog.FileName;
-    }
     private void SetCaptureProcesses(IEnumerable<ProcessInfo> processes)
     {
         var selectedId = SelectedProcess?.Id;
@@ -491,10 +498,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
     internal bool ValidateCaptureInputs(out int pid, out int duration)
     {
-        CaptureError = CaptureInputValidation.Validate(ProcessId, CaptureDuration, PresentMonPath, File.Exists, out pid, out duration);
+        pid = 0; duration = 0;
+        string executable;
+        try { executable = services.ResolvePresentMon(); }
+        catch (InvalidOperationException ex) { CaptureError = ex.Message; RefreshCollectorState(); return false; }
+        CaptureError = CaptureInputValidation.Validate(ProcessId, CaptureDuration, executable, File.Exists, out pid, out duration);
         return !HasCaptureError;
     }
-    private async Task CaptureAsync()
+    private void RefreshCollectorState()
+    {
+        try { services.ResolvePresentMon(); hasBundledCollector = true; collectorStatus = "PresentMon incluido y verificado. No necesitas instalar herramientas adicionales."; }
+        catch (InvalidOperationException ex) { hasBundledCollector = false; collectorStatus = ex.Message; }
+        Changed(nameof(HasBundledCollector)); Changed(nameof(CollectorStatus)); CommandManager.InvalidateRequerySuggested();
+    }
+    internal async Task CaptureAsync()
     {
         if (!ValidateCaptureInputs(out var pid, out var duration)) return;
         try
@@ -504,17 +521,36 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         { CaptureError = "Ese PID ya no está en ejecución. Actualiza la lista o revisa el PID en el Administrador de tareas."; return; }
-        var executable = PresentMonPath;
         var completed = await RunBusyAsync($"Capturando {duration} segundos del proceso {pid}…", async token =>
         {
-            var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FlyyOptimizer", "Captures");
+            var executable = services.ResolvePresentMon();
+            var directory = services.CaptureDirectory;
             Directory.CreateDirectory(directory);
             var output = Path.Combine(directory, $"PresentMon-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.csv");
-            var session = await new GamingCapture().CaptureAsync(executable, pid, duration, output, token);
+            var session = await services.Capture(executable, pid, duration, output, token);
             token.ThrowIfCancellationRequested();
             SessionA = new(session);
             SessionB = null;
             Status = $"Captura terminada. CSV conservado: {Path.GetFileName(output)}";
+        });
+        if (!completed && HasError) { CaptureError = Error; Error = ""; }
+    }
+    private async Task OpenElevatedAsync()
+    {
+        if (!CanRequestCaptureElevation) return;
+        var completed = await RunBusyAsync("Solicitando a Windows abrir FlyyOptimizer como administrador…", async token =>
+        {
+            try
+            {
+                await Task.Run(services.OpenElevated, token);
+                CaptureError = "";
+                Status = "FlyyOptimizer abierto como administrador. Esta sesión sigue disponible aquí.";
+            }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                CaptureError = "La captura requiere permisos de administrador. Cancelaste la solicitud de Windows; puedes reintentar desde este botón.";
+                Status = "Solicitud de administrador cancelada. Puedes seguir usando esta sesión.";
+            }
         });
         if (!completed && HasError) { CaptureError = Error; Error = ""; }
     }

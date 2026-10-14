@@ -1,6 +1,9 @@
 param([switch]$SkipTests, [switch]$NoPublish)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
+$taskPresentMon = Join-Path $taskRoot 'assets\PresentMon\PresentMon.exe'
+if (-not (Test-Path -LiteralPath $taskPresentMon -PathType Leaf)) { throw 'Falta el colector gaming incluido en assets\PresentMon. Recupera el archivo oficial fijado antes de compilar; el build no descarga herramientas.' }
+if ((Get-FileHash -LiteralPath $taskPresentMon -Algorithm SHA256).Hash -ne 'B2A706BC6AD475749E3B7E3409263AA1E6906D45BDCF993F6DBC0F660188F1AF') { throw 'El colector gaming incluido no coincide con el SHA256 oficial fijado. No se publicará un paquete alterado.' }
 $taskDotnet = Get-Command dotnet -ErrorAction SilentlyContinue
 $taskBundled = Join-Path $env:USERPROFILE '.codex\runtimes\dotnet-10-sdk\dotnet.exe'
 if (Test-Path -LiteralPath $taskBundled) { $taskDotnetPath = $taskBundled }

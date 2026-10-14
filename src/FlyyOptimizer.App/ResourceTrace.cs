@@ -15,7 +15,7 @@ public sealed class ResourceTrace : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
-        var gridPen = new Pen(new SolidColorBrush(Color.FromRgb(43, 63, 87)), 1);
+        var gridPen = new Pen(TryFindResource("Line") as Brush ?? new SolidColorBrush(Color.FromRgb(216, 221, 229)), 1);
         for (var i = 0; i < 3; i++) dc.DrawLine(gridPen, new(0, ActualHeight * i / 2), new(ActualWidth, ActualHeight * i / 2));
         if (Values is not { Count: > 0 } values || ActualWidth <= 0 || ActualHeight <= 0 || Limit <= 0) return;
         Point? previous = null;

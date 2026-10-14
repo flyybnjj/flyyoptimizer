@@ -5,6 +5,7 @@ using System.Net.NetworkInformation;
 using System.Security.Principal;
 using FlyyOptimizer.Core;
 using Microsoft.Win32;
+using InventoryStartupEntry = FlyyOptimizer.Core.StartupEntry;
 
 namespace FlyyOptimizer.Windows;
 
@@ -172,9 +173,9 @@ public sealed class WindowsCollector
         (id.StartsWith("PCI\\VEN_", StringComparison.OrdinalIgnoreCase) || id.StartsWith("USB\\VID_", StringComparison.OrdinalIgnoreCase) ||
          id.StartsWith("HID\\VID_", StringComparison.OrdinalIgnoreCase)) && id.Count(c => c == '\\') == 1) ?? "";
 
-    private static IEnumerable<StartupEntry> Startup(List<string> notes, CancellationToken token)
+    private static IEnumerable<InventoryStartupEntry> Startup(List<string> notes, CancellationToken token)
     {
-        var entries = new List<StartupEntry>();
+        var entries = new List<InventoryStartupEntry>();
         foreach (var hive in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
         foreach (var view in Environment.Is64BitOperatingSystem ? new[] { RegistryView.Registry64, RegistryView.Registry32 } : new[] { RegistryView.Registry32 })
         foreach (var leaf in new[] { "Run", "RunOnce" })
@@ -188,12 +189,12 @@ public sealed class WindowsCollector
                 foreach (var name in key.GetValueNames())
                 {
                     if (key.GetValue(name, "", RegistryValueOptions.DoNotExpandEnvironmentNames) is string command && command.Length > 0)
-                        entries.Add(new StartupEntry(AcquisitionNormalization.PrivateCommand(name), AcquisitionNormalization.PrivateCommand(command), $"{hive} / {leaf} / {view}"));
+                        entries.Add(new InventoryStartupEntry(AcquisitionNormalization.PrivateCommand(name), AcquisitionNormalization.PrivateCommand(command), $"{hive} / {leaf} / {view}"));
                 }
             });
         }
         foreach (var row in Query("Inicio (WMI)", "SELECT Name, Command FROM Win32_StartupCommand", notes, token))
-            entries.Add(new StartupEntry(AcquisitionNormalization.PrivateCommand(Text(row, "Name")), AcquisitionNormalization.PrivateCommand(Text(row, "Command")), "Inicio de Windows (WMI)"));
+            entries.Add(new InventoryStartupEntry(AcquisitionNormalization.PrivateCommand(Text(row, "Name")), AcquisitionNormalization.PrivateCommand(Text(row, "Command")), "Inicio de Windows (WMI)"));
         notes.Add("Inicio: se revisaron registro y WMI. Windows puede mostrar otras aplicaciones o tareas de inicio en Configuración.");
         return entries.DistinctBy(e => e.Name + "\n" + e.Command, StringComparer.OrdinalIgnoreCase).OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase);
     }

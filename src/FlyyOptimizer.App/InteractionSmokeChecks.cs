@@ -1,6 +1,11 @@
 using System.IO;
 using System.Windows.Threading;
 using FlyyOptimizer.Core;
+using FlyyOptimizer.Windows;
+using System.Windows.Input;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace FlyyOptimizer.App;
 
@@ -29,8 +34,30 @@ internal static class InteractionSmokeChecks
         var opened = new List<ActionKind>();
         var offline = false;
         var cancelScan = true;
+        var native = new FixtureOptimizationService();
+        string? capturedExecutable = null;
+        var denyCapture = false;
+        var elevationRequests = 0;
+        var elevationCancelled = true;
+        var elevatedWindowsOpened = 0;
         var services = new ViewModelServices
         {
+            CreateNativeTools = () => native,
+            ResolvePresentMon = () => Environment.ProcessPath!,
+            CaptureDirectory = Path.Combine(directory, "fixture-captures"),
+            IsElevated = () => false,
+            OpenElevated = () =>
+            {
+                elevationRequests++;
+                if (elevationCancelled) throw new System.ComponentModel.Win32Exception(1223, "Fixture UAC cancelled");
+                elevatedWindowsOpened++;
+            },
+            Capture = (executable, _, _, output, _) =>
+            {
+                if (denyCapture) throw new InvalidOperationException("Fixture trace session: access denied; administrative privileges required.");
+                capturedExecutable = executable;
+                return Task.FromResult(new GamingSession { ProcessName = "Fixture game", SourceFile = output, FrameCount = 30, TimingColumn = "FrameTime", AverageFps = 60, AverageFrameTimeMs = 16.667, P95FrameTimeMs = 17, P99FrameTimeMs = 18, OnePercentLowFps = 55, FrameTimesMs = [16, 17, 18] });
+            },
             Collect = async (_, token, detailed) =>
             {
                 if (cancelScan)
@@ -52,6 +79,77 @@ internal static class InteractionSmokeChecks
             Open = (kind, _) => opened.Add(kind)
         };
         using var model = new MainViewModel(Path.Combine(directory, "fixture-history"), services);
+        var tools = model.Tools;
+        Check(tools.RefreshCommand.CanExecute(null) && !tools.ApplyPowerCommand.CanExecute(null) && !tools.UndoCommand.CanExecute(null), "Native improvement inspection is available before a full scan");
+        await tools.RefreshAsync();
+        Check(native.Mutations == 0 && !model.HasSnapshot && tools.HasInspection && tools.GamingToggles.Count == 2 && tools.ImprovementToggles.Single().State == "Activado", "Inspecting concrete settings needs no scan and makes no mutations");
+        async Task ExecuteAsync(ICommand command, object? parameter = null)
+        {
+            Check(command.CanExecute(parameter), "Tool command is available for selected target");
+            command.Execute(parameter);
+            while (model.IsBusy) await dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
+        }
+        await ExecuteAsync(tools.DisableToggleCommand, tools.ImprovementToggles.Single());
+        Check(tools.ImprovementToggles.Single().State == "Desactivado" && tools.HasChanges, "Applying animations refreshes actual state and exposes reversible change");
+        tools.SelectedChange = tools.Changes.Single();
+        await ExecuteAsync(tools.UndoCommand);
+        Check(tools.ImprovementToggles.Single().State == "Activado" && !tools.HasChanges, "Undo restores previous state and refreshes change list");
+        await ExecuteAsync(tools.EnableToggleCommand, tools.GamingToggles.Single(t => t.Setting.Id == "game-mode"));
+        await ExecuteAsync(tools.DisableToggleCommand, tools.GamingToggles.Single(t => t.Setting.Id == "xbox-captures"));
+        Check(tools.GamingToggles.Single(t => t.Setting.Id == "game-mode").Setting.Enabled == true && tools.GamingToggles.Single(t => t.Setting.Id == "xbox-captures").Setting.Enabled == false, "Gaming controls dispatch separate Game Mode and Xbox capture changes");
+        tools.SelectedPowerScheme = tools.PowerSchemes.Single(p => p.Id == "performance");
+        await ExecuteAsync(tools.ApplyPowerCommand);
+        Check(tools.PowerSchemes.Single(p => p.Id == "performance").Active && !tools.ApplyPowerCommand.CanExecute(null), "Applying selected existing power plan refreshes active state");
+        var powerControl = new ContentControl { Content = tools, ContentTemplate = (DataTemplate)Application.Current.FindResource("PowerSchemeTemplate") };
+        powerControl.Measure(new Size(700, 240)); powerControl.Arrange(new Rect(0, 0, 700, 240)); powerControl.UpdateLayout();
+        Check(VisibleText(powerControl).Contains("Rendimiento fixture"), "Power selector displays selected plan name rather than object or GUID");
+        tools.SelectedStartup = tools.StartupEntries.Single();
+        await ExecuteAsync(tools.ToggleStartupCommand);
+        Check(!tools.StartupEntries.Single().Entry.Enabled && tools.StartupEntries.Single().State == "Retirada de Run" && tools.StartupActionLabel == "Restaurar entrada", "Startup action removes only selected Run entry and offers restoring it");
+        await ExecuteAsync(tools.PreviewTempCommand);
+        Check(tools.TemporaryFiles.Count == 2 && !tools.CleanTempCommand.CanExecute(null) && tools.TemporaryFiles.All(f => !f.Selected), "Cleanup previews files without deleting or selecting them automatically");
+        tools.TemporaryFiles[0].Selected = true;
+        native.CancelPreviewNext = true;
+        await ExecuteAsync(tools.PreviewTempCommand);
+        Check(!tools.HasPreview && !tools.HasTemporaryFiles && !tools.CleanTempCommand.CanExecute(null) && tools.CleanupStatus.Contains("cancelada"), "Cancelled replacement preview clears stale file IDs selection and cleanup command");
+        await ExecuteAsync(tools.PreviewTempCommand);
+        tools.TemporaryFiles[1].Selected = true;
+        await ExecuteAsync(tools.CleanTempCommand);
+        Check(native.CleanedIds.SequenceEqual(["second"]) && !tools.HasTemporaryFiles && tools.CleanupStatus.Contains("2,0 KiB"), "Cleanup sends only selected file IDs and shows recovered bytes with a fresh preview required");
+        var countBeforeFailure = tools.Changes.Count;
+        native.FailNext = true;
+        await ExecuteAsync(tools.EnableToggleCommand, tools.ImprovementToggles.Single() with { Setting = tools.ImprovementToggles.Single().Setting with { Enabled = null } });
+        Check(tools.Status.Contains("Fixture permission denied") && tools.HasActionError && tools.Changes.Count == countBeforeFailure && model.Status.Contains("Fixture permission denied"), "Rejected change reports backend reason distinctly and footer finishes without a successful change");
+        native.PartialCancelNext = true;
+        await ExecuteAsync(tools.EnableToggleCommand, tools.GamingToggles.Single(t => t.Setting.Id == "xbox-captures"));
+        Check(tools.GamingToggles.Single(t => t.Setting.Id == "xbox-captures").Setting.Enabled == true && tools.Changes.Count == countBeforeFailure + 1 && tools.Status.Contains("cancelada"), "Cancelled partial change refreshes current state and saved undo record before releasing operation");
+        Check(model.HasBundledCollector && model.CaptureCommand.CanExecute(null), "Included collector enables capture without executable selection");
+        model.ProcessId = Environment.ProcessId.ToString();
+        await model.CaptureAsync();
+        Check(model.HasSessionA && capturedExecutable == Environment.ProcessPath && model.SessionA!.Session.FrameCount == 30 && model.SessionA.Source.EndsWith(".csv"), "Capture uses resolved included collector and presents measured result");
+        denyCapture = true;
+        await model.CaptureAsync();
+        Check(model.OpenElevatedCommand.CanExecute(null) && model.CanRequestCaptureElevation && elevationRequests == 0 && model.HasCaptureError && !model.HasError, "ETW permission failure offers explicit elevation without launching it automatically");
+        await ExecuteAsync(model.OpenElevatedCommand);
+        Check(elevationRequests == 1 && elevatedWindowsOpened == 0 && model.CaptureError.Contains("Cancelaste") && model.OpenElevatedCommand.CanExecute(null) && model.Status.Contains("cancelada"), "Cancelled UAC request gives inline recovery and allows an explicit retry");
+        elevationCancelled = false;
+        await ExecuteAsync(model.OpenElevatedCommand);
+        Check(elevationRequests == 2 && elevatedWindowsOpened == 1 && !model.CanRequestCaptureElevation && model.HasSessionA && !model.IsClosing && model.Status.Contains("Esta sesión sigue disponible"), "Explicit elevation launches a new instance and keeps original observation session available");
+        var elevatedStart = Elevation.CreateStartInfo();
+        Check(elevatedStart.FileName == Path.Combine(AppContext.BaseDirectory, "FlyyOptimizer.exe") && elevatedStart.WorkingDirectory == AppContext.BaseDirectory && elevatedStart.UseShellExecute && elevatedStart.Verb == "runas" && elevatedStart.ArgumentList.Count == 0 && elevatedStart.Arguments == "" && elevatedStart.WindowStyle == System.Diagnostics.ProcessWindowStyle.Normal, "Elevation launch targets only this apphost with native UAC and no smoke or external-tool arguments");
+        denyCapture = false;
+        using (var elevatedModel = new MainViewModel(Path.Combine(directory, "already-elevated"), new ViewModelServices
+        {
+            CreateNativeTools = () => new FixtureOptimizationService(), ResolvePresentMon = () => Environment.ProcessPath!,
+            IsElevated = () => true, OpenElevated = () => throw new InvalidOperationException("Fixture must never elevate an elevated process"),
+            CaptureDirectory = Path.Combine(directory, "elevated-fixture-captures"),
+            Capture = (_, _, _, _, _) => throw new InvalidOperationException("Fixture access denied; administrative privileges required")
+        }))
+        {
+            elevatedModel.ProcessId = Environment.ProcessId.ToString();
+            await elevatedModel.CaptureAsync();
+            Check(elevatedModel.HasCaptureError && !elevatedModel.CanRequestCaptureElevation && !elevatedModel.OpenElevatedCommand.CanExecute(null), "An already elevated process keeps permission error without offering another elevation");
+        }
         Check(model.ScanCommand.CanExecute(null) && !model.ExportCommand.CanExecute(null) && !model.SearchOemCommand.CanExecute(null), "Empty-state commands explain missing observation");
         model.NavigateCommand.Execute("4");
         Check(model.SelectedPage == 4, "Navigation command selects Gaming");
@@ -80,7 +178,7 @@ internal static class InteractionSmokeChecks
         model.ProcessId = "42";
         Check(model.SelectedProcess is null && model.ProcessId == "42", "Manual PID clears old picker selection");
         model.ProcessId = "0";
-        Check(!model.ValidateCaptureInputs(out _, out _) && model.HasCaptureError && !model.HasError, "Invalid capture input stays beside capture form");
+        Check(!model.ValidateCaptureInputs(out _, out _) && model.HasCaptureError && !model.HasError && !model.CanRequestCaptureElevation && !model.OpenElevatedCommand.CanExecute(null), "Invalid capture input stays beside capture form without offering elevation");
         await model.SearchOemAsync(true);
         Check(serialRequests.SequenceEqual([false, true]) && model.SerialDisplay.Contains("1234"), "Only explicit serial action sends serial request");
         await model.SearchUpdatesAsync();
@@ -109,8 +207,98 @@ internal static class InteractionSmokeChecks
         foreach (var kind in guideKinds)
             await model.OpenGuideAsync(kind.ToString());
         Check(opened.SequenceEqual(guideKinds) && model.Actions.Count == guideKinds.Count + 1 && model.Actions.All(a => a.Outcome.Contains("no se comprobó ni aplicó")), "All Windows guide commands dispatch and log opened-only outcome");
-        await model.PrepareToCloseAsync();
+        model.ProcessId = Environment.ProcessId.ToString(); denyCapture = true;
+        await model.CaptureAsync(); denyCapture = false;
+        native.BlockInspection = true;
+        var pendingTools = tools.RefreshAsync();
+        await native.InspectionStarted.Task;
+        Check(model.IsBusy && !model.ScanCommand.CanExecute(null) && !model.CaptureCommand.CanExecute(null) && !tools.PreviewTempCommand.CanExecute(null) && !model.OpenElevatedCommand.CanExecute(null) && model.CancelCommand.CanExecute(null), "Native operation shares scan capture cleanup elevation and cancel gating");
+        var closing = model.PrepareToCloseAsync();
+        await native.InspectionCancelled.Task;
+        model.OpenElevatedCommand.Execute(null);
+        Check(!closing.IsCompleted && !tools.RefreshCommand.CanExecute(null) && !model.OpenElevatedCommand.CanExecute(null) && elevationRequests == 2, "Closing awaits native cleanup and blocks new tool and elevation launches");
+        native.ReleaseInspection.TrySetResult();
+        await closing; await pendingTools;
         Check(model.IsClosing && !model.CanStartOperation && !model.ScanCommand.CanExecute(null), "Closing waits for cleanup and disables new work");
+        using var unavailable = new MainViewModel(Path.Combine(directory, "missing-collector"), new ViewModelServices { CreateNativeTools = () => new FixtureOptimizationService(), ResolvePresentMon = () => throw new InvalidOperationException("Fixture bundled collector missing; extract FlyyOptimizer again.") });
+        Check(!unavailable.HasBundledCollector && !unavailable.CaptureCommand.CanExecute(null) && unavailable.CollectorStatus.Contains("extract"), "Missing bundled collector blocks capture with package recovery instruction");
         return checks;
+    }
+
+    private static IEnumerable<string> VisibleText(DependencyObject root)
+    {
+        if (root is TextBlock text) yield return text.Text;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            foreach (var child in VisibleText(VisualTreeHelper.GetChild(root, i))) yield return child;
+    }
+
+    private sealed class FixtureOptimizationService : INativeOptimizationService
+    {
+        private readonly List<ToggleSetting> toggles = [new("animations", "Animaciones", "Fixture animations", true, "Fixture"), new("game-mode", "Modo Juego", "Fixture Game Mode", false, "Fixture"), new("xbox-captures", "Capturas Xbox", "Fixture Xbox recording", true, "Fixture")];
+        private readonly List<PowerScheme> power = [new("balanced", "Equilibrado", true), new("performance", "Rendimiento fixture", false)];
+        private readonly List<FlyyOptimizer.Windows.StartupEntry> startup = [new("user-run", "Fixture launcher", "fixture.exe", true, "Usuario actual")];
+        private readonly List<AppliedOptimization> changes = [];
+        private readonly Dictionary<string, Action> restores = [];
+        public int Mutations { get; private set; }
+        public bool FailNext { get; set; }
+        public bool PartialCancelNext { get; set; }
+        public bool CancelPreviewNext { get; set; }
+        public bool BlockInspection { get; set; }
+        public TaskCompletionSource InspectionStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource InspectionCancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseInspection { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IReadOnlyCollection<string> CleanedIds { get; private set; } = [];
+        public async Task<OptimizationOverview> InspectAsync(CancellationToken cancellationToken = default)
+        {
+            if (BlockInspection)
+            {
+                InspectionStarted.TrySetResult();
+                try { await Task.Delay(Timeout.Infinite, cancellationToken); }
+                catch (OperationCanceledException) { InspectionCancelled.TrySetResult(); await ReleaseInspection.Task; throw; }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(toggles.ToList(), power.ToList(), startup.ToList(), changes.ToList());
+        }
+        private Task<OptimizationOutcome> Change(string title, Action apply, Action restore, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            if (FailNext) { FailNext = false; return Task.FromResult(new OptimizationOutcome(false, "Fixture permission denied")); }
+            apply(); Mutations++;
+            var id = Guid.NewGuid().ToString("N");
+            changes.Add(new(id, title, DateTimeOffset.Now, true, "Fixture saved previous state")); restores.Add(id, restore);
+            if (PartialCancelNext) { PartialCancelNext = false; throw new OperationCanceledException(token); }
+            return Task.FromResult(new OptimizationOutcome(true, "Fixture change applied and checked", true));
+        }
+        public Task<OptimizationOutcome> SetToggleAsync(string id, bool enabled, CancellationToken cancellationToken = default)
+        {
+            var index = toggles.FindIndex(t => t.Id == id); var previous = toggles[index];
+            return Change(previous.Name, () => toggles[index] = previous with { Enabled = enabled }, () => toggles[index] = previous, cancellationToken);
+        }
+        public Task<OptimizationOutcome> SetPowerSchemeAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var previous = power.ToList();
+            return Change("Fixture power", () => { for (var i = 0; i < power.Count; i++) power[i] = power[i] with { Active = power[i].Id == id }; }, () => { power.Clear(); power.AddRange(previous); }, cancellationToken);
+        }
+        public Task<OptimizationOutcome> SetStartupEnabledAsync(string id, bool enabled, CancellationToken cancellationToken = default)
+        {
+            var index = startup.FindIndex(s => s.Id == id); var previous = startup[index];
+            return Change(previous.Name, () => startup[index] = previous with { Enabled = enabled }, () => startup[index] = previous, cancellationToken);
+        }
+        public Task<OptimizationOutcome> UndoAsync(string changeId, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); restores[changeId](); restores.Remove(changeId); changes.RemoveAll(c => c.Id == changeId); Mutations++;
+            return Task.FromResult(new OptimizationOutcome(true, "Fixture previous state restored", true));
+        }
+        public Task<TemporaryCleanupPreview> PreviewTempAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (CancelPreviewNext) { CancelPreviewNext = false; throw new OperationCanceledException(cancellationToken); }
+            return Task.FromResult(new TemporaryCleanupPreview([new("first", "fixture-first.tmp", 1024), new("second", "fixture-second.tmp", 2048)], 3072, false, "Fixture preview"));
+        }
+        public Task<TemporaryCleanupResult> CleanTempAsync(IReadOnlyCollection<string> ids, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); CleanedIds = ids.ToArray(); Mutations++;
+            return Task.FromResult(new TemporaryCleanupResult(1, 0, 2048, "Fixture selected file removed"));
+        }
     }
 }

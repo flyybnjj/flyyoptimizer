@@ -17,5 +17,7 @@
     <Content Include="../../README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../README.md')" />
     <Content Include="../../THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../THIRD-PARTY-NOTICES.md')" />
     <Content Include="../../licenses/**/*" Link="licenses/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../assets/PresentMon/PresentMon.exe" Link="tools/PresentMon/PresentMon.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../assets/PresentMon/provenance.json" Link="tools/PresentMon/provenance.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

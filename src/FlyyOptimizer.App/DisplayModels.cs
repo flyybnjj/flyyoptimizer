@@ -13,7 +13,7 @@ public sealed record FindingRow(Finding Finding)
     public string Category => Finding.Category;
     public bool HasAction => Finding.Action != ActionKind.None;
     public string Level => Finding.Severity switch { Severity.Critical => "Atención prioritaria", Severity.Warning => "Revisar", Severity.Suggestion => "Sugerencia", _ => "Información" };
-    public string Accent => Finding.Severity is Severity.Critical or Severity.Warning ? "#F5BF69" : "#62B6FF";
+    public string Accent => Finding.Severity is Severity.Critical or Severity.Warning ? "#9A5700" : "#0062CC";
     public string ActionLabel => Labels.Action(Finding.Action);
 }
 
