@@ -123,7 +123,9 @@ public partial class App : Application
                     SerialLookupRequested = false, LiveScanRendered = liveRender is not null,
                     FortnitePreviewReady = model.Fortnite.HasPreview, FortniteInstalled = model.Fortnite.IsInstalled,
                     FortniteDetectedDirectory = model.Fortnite.IsInstalled ? model.Fortnite.InstallPath : null,
-                    FortniteAvailableOptions = model.Fortnite.Options.Count(option => option.Option.Available)
+                    FortniteAvailableOptions = model.Fortnite.Options.Count(option => option.Option.Available),
+                    FortniteUnavailableOptions = model.Fortnite.Options.Where(option => !option.Option.Available)
+                        .Select(option => new { option.Option.Id, option.Option.Status }).ToArray()
                 });
             }
             model.Dispose(); window.Close(); Shutdown(0);

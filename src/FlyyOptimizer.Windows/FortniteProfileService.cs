@@ -52,7 +52,12 @@ public sealed class FortniteProfileService : IFortniteProfileService
         options.Add(new("power-mode", "Máximo rendimiento con corriente", "Activa el modo Mejor rendimiento de Windows sin crear planes extra. Puede aumentar consumo, ruido y temperatura; el modo anterior queda guardado.", powerMode is not null, powerMode is not null, powerMode is null ? "Requiere corriente y un plan Equilibrado compatible" : powerMode == Guid.Parse("ded574b5-45a0-4f42-8737-46345c09c238") ? "Ya activo" : "Modo anterior guardado"));
         options.Add(new("visual-effects", "Reducir efectos visuales de Windows", "Reduce animaciones de menús, listas y ayudas mediante Windows. Cambia la respuesta del escritorio; no modifica los gráficos del juego.", visualEffects, visualEffects, visualEffects ? "Aplicación inmediata; conserva cada preferencia original" : "Windows no permitió leer todos los efectos"));
         foreach (var group in PerformanceTweaks.ProfileGroups)
-            options.Add(new(group.Id, group.Title, group.Description, native is NativeOptimizationService, native is NativeOptimizationService, "Preferencia reversible; algunas requieren reiniciar la app o sesión"));
+        {
+            var available = native is NativeOptimizationService preferences && preferences.CanApplyPerformanceTweak(group.Id);
+            options.Add(new(group.Id, group.Title, group.Description, available, available, available
+                ? "Preferencia reversible; algunas requieren reiniciar la app o sesión"
+                : "Windows no permite modificar este ajuste con los permisos actuales. Puede estar restringido por una política."));
+        }
         preview = new(installation, options, windows.Changes.Concat(gameChanges).OrderByDescending(x => x.AppliedAt).ToList(),
             "Optimiza automáticamente o personaliza los ajustes disponibles. Los originales quedan guardados para restaurar.");
         return preview;

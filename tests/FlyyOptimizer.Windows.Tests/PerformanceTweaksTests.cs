@@ -6,6 +6,22 @@ namespace FlyyOptimizer.Windows.Tests;
 public sealed class PerformanceTweaksTests
 {
     [Fact]
+    public async Task Readonly_Edge_values_already_at_target_are_successful_without_writes()
+    {
+        using var fixture = new OptimizationFixture();
+        const string key = @"Software\Policies\Microsoft\Edge";
+        fixture.Platform.WriteValue(key, "StartupBoostEnabled", RegistryValueState.Dword(0));
+        fixture.Platform.WriteValue(key, "BackgroundModeEnabled", RegistryValueState.Dword(0));
+        fixture.Platform.DeniedWriteKeys.Add(key);
+        var service = fixture.Service();
+        Assert.True(service.CanApplyPerformanceTweak("browser-background"));
+        var result = await service.ApplyPerformanceTweakAsync("browser-background");
+        Assert.True(result.Success);
+        Assert.False(result.Changed);
+        Assert.Empty((await service.InspectAsync()).Changes);
+    }
+
+    [Fact]
     public async Task Background_and_browser_preferences_have_exact_reversible_backups()
     {
         using var fixture = new OptimizationFixture();

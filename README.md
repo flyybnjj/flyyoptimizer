@@ -6,7 +6,7 @@ Aplicación de escritorio en español para **Windows 11 x64**, desarrollada en *
 
 ## Descargar
 
-**[Descargar FlyyOptimizer 1.0 portable para Windows x64](https://github.com/flyybnjj/flyyoptimizer/releases/download/v1.0/FlyyOptimizer-win-x64.zip)**
+**[Descargar FlyyOptimizer 1.0.1 portable para Windows x64](https://github.com/flyybnjj/flyyoptimizer/releases/download/v1.0.1/FlyyOptimizer-win-x64.zip)**
 
 Extrae todo el ZIP y abre **FlyyOptimizer.exe**. Conserva la carpeta **Archivos** junto al ejecutable. También puedes consultar [las releases](https://github.com/flyybnjj/flyyoptimizer/releases).
 
@@ -58,6 +58,8 @@ Según la compatibilidad del equipo, FlyyOptimizer permite:
 - Aplicar calidad competitiva, desactivar VSync y desenfoque de movimiento en la configuración existente de Fortnite.
 
 Los cambios se comprueban y guardan su estado anterior. Fortnite debe estar cerrado para editar su configuración; se preservan resolución, límite de FPS, renderizador y controles. No se modifican archivos de anti-cheat. El efecto de cada ajuste depende del hardware y de la carga del equipo; no se promete una cantidad de FPS.
+
+Desde **1.0.1**, los ajustes de registro restringidos por Windows, como las políticas de Edge, se comprueban antes de seleccionarlos. Si faltan permisos, aparecen desactivados en Gaming con su explicación; los demás ajustes disponibles se pueden aplicar. [Corrección y verificación](docs/edge-permissions-fix.md).
 
 ## Compilar desde el código
 

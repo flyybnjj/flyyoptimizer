@@ -6,6 +6,39 @@ namespace FlyyOptimizer.Windows.Tests;
 public sealed class FortniteProfileTests
 {
     [Fact]
+    public async Task Locked_Edge_policy_is_unavailable_and_other_default_steps_complete()
+    {
+        using var fixture = new ProfileFixture();
+        fixture.Platform.DeniedWriteKeys.Add(@"Software\Policies\Microsoft");
+        var profile = fixture.Profile;
+        var preview = await profile.PreviewAsync();
+        var browser = preview.Options.Single(option => option.Id == "browser-background");
+        Assert.False(browser.Available);
+        Assert.False(browser.SelectedByDefault);
+        Assert.Contains("permiso", browser.Status, StringComparison.OrdinalIgnoreCase);
+        var selected = preview.Options.Where(option => option.Available && option.SelectedByDefault).Select(option => option.Id).ToArray();
+        var result = await profile.ApplyAsync(selected);
+        Assert.All(result.Steps, step => Assert.True(step.Success, step.Message));
+        Assert.DoesNotContain(result.Steps, step => step.Id == "browser-background");
+        Assert.False(fixture.Platform.ReadValue(@"Software\Policies\Microsoft\Edge", "StartupBoostEnabled").Exists);
+        Assert.Contains((await fixture.Native.InspectAsync()).Changes, change => change.Title.Contains("Modo Juego"));
+    }
+
+    [Fact]
+    public async Task Edge_permission_loss_after_preview_does_not_create_a_failed_backup()
+    {
+        using var fixture = new ProfileFixture();
+        var profile = fixture.Profile;
+        var preview = await profile.PreviewAsync();
+        Assert.True(preview.Options.Single(option => option.Id == "browser-background").Available);
+        fixture.Platform.DeniedWriteKeys.Add(@"Software\Policies\Microsoft\Edge");
+        var result = await profile.ApplyAsync(["browser-background", "winutil-game-mode"]);
+        Assert.False(result.Steps.Single(step => step.Id == "browser-background").Success);
+        Assert.True(result.Steps.Single(step => step.Id == "winutil-game-mode").Success);
+        Assert.DoesNotContain((await fixture.Native.InspectAsync()).Changes, change => change.Title.Contains("Edge"));
+    }
+
+    [Fact]
     public async Task Official_WinUtil_selection_sets_both_game_mode_values_and_restores_originals()
     {
         using var fixture = new OptimizationFixture();

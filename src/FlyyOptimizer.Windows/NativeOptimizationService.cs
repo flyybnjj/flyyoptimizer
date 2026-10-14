@@ -87,10 +87,21 @@ public sealed class NativeOptimizationService : INativeOptimizationService
             WinUtilGameMode.Read().Select(value => RegistryChange(OptimizationTargets.GameBar, value.Name,
                 RegistryValueState.Dword(value.Value))).ToList()), cancellationToken);
 
+    public bool CanApplyPerformanceTweak(string id)
+    {
+        try
+        {
+            return PerformanceTweaks.Find(id).Values.All(value =>
+                platform.ReadValue(value.Key, value.Name).Same(RegistryValueState.Dword(value.Target)) || platform.CanWriteKey(value.Key));
+        }
+        catch (Exception ex) when (IsExpectedFailure(ex)) { return false; }
+    }
+
     public Task<OptimizationOutcome> ApplyPerformanceTweakAsync(string id, CancellationToken cancellationToken = default) =>
         ExecuteAsync(_ =>
         {
             var group = PerformanceTweaks.Find(id);
+            if (!CanApplyPerformanceTweak(id)) throw new UnauthorizedAccessException("Windows no permite modificar este ajuste con los permisos actuales.");
             return NewEntry(id, group.Title, group.Values.Select(value => RegistryChange(value.Key, value.Name, RegistryValueState.Dword(value.Target))).ToList());
         }, cancellationToken);
 

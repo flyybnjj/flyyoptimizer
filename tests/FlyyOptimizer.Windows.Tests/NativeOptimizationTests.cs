@@ -274,10 +274,13 @@ internal sealed class FakeOptimizationPlatform : IOptimizationPlatform
     internal int? FailWriteNumber;
     internal Action? BeforeWrite;
     private int writes;
+    internal HashSet<string> DeniedWriteKeys = new(StringComparer.OrdinalIgnoreCase);
+    public bool CanWriteKey(string path) => !DeniedWriteKeys.Any(key => path.Equals(key, StringComparison.OrdinalIgnoreCase) || path.StartsWith(key + "\\", StringComparison.OrdinalIgnoreCase));
     public RegistryValueState ReadValue(string path, string name) { lock (values) return values.GetValueOrDefault(path + "|" + name) ?? RegistryValueState.Absent; }
     public void WriteValue(string path, string name, RegistryValueState value)
     {
         BeforeWrite?.Invoke();
+        if (!CanWriteKey(path)) throw new UnauthorizedAccessException("fixture registry policy denied");
         if (++writes == FailWriteNumber) throw new UnauthorizedAccessException("fixture denied write");
         lock (values) { if (value.Exists) values[path + "|" + name] = value; else values.Remove(path + "|" + name); }
     }

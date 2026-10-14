@@ -39,6 +39,7 @@ internal sealed record RegistryValueState(bool Exists, RegistryValueKind Kind = 
 
 internal interface IOptimizationPlatform
 {
+    bool CanWriteKey(string path);
     RegistryValueState ReadValue(string path, string name);
     void WriteValue(string path, string name, RegistryValueState value);
     IReadOnlyDictionary<string, RegistryValueState> ReadRunEntries();
@@ -55,6 +56,28 @@ internal interface IOptimizationPlatform
 
 internal sealed class NativeOptimizationPlatform : IOptimizationPlatform
 {
+    public bool CanWriteKey(string path) => ProbeWritableKey(path, candidate =>
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(candidate, writable: true);
+        return key is null ? null : true;
+    });
+
+    internal static bool ProbeWritableKey(string path, Func<string, bool?> openWritable)
+    {
+        try
+        {
+            var candidate = path;
+            while (!string.IsNullOrEmpty(candidate))
+            {
+                if (openWritable(candidate) is bool allowed) return allowed;
+                var separator = candidate.LastIndexOf('\\');
+                candidate = separator < 0 ? "" : candidate[..separator];
+            }
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or Win32Exception) { }
+        return false;
+    }
+
     public Guid GetPowerMode()
     {
         RequireAcPower();
