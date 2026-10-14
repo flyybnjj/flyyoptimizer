@@ -6,4 +6,5 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
   <ItemGroup><InternalsVisibleTo Include="FlyyOptimizer.Windows.Tests" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../assets/WinUtil/fortnite-winutil.json" LogicalName="FlyyOptimizer.WinUtil.GameMode.json" /></ItemGroup>
 </Project>

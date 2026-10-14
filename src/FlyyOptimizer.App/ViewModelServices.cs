@@ -16,6 +16,12 @@ internal sealed class ViewModelServices
         (machine, serial, token) => new OemDriverService().FindAsync(machine, serial, token);
     public Action<ActionKind, string?> Open { get; init; } = WindowsActions.Open;
     public Func<INativeOptimizationService> CreateNativeTools { get; init; } = () => new NativeOptimizationService();
+    public Func<IFortniteProfileService> CreateFortniteProfile { get; init; } = () => new FortniteProfileService();
+    public Func<string?> ChooseFortniteFolder { get; init; } = () =>
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Seleccionar carpeta de instalación de Fortnite", Multiselect = false };
+        return dialog.ShowDialog() == true ? dialog.FolderName : null;
+    };
     public Func<string> ResolvePresentMon { get; init; } = () => BundledPresentMon.Resolve();
     public Func<string, int, int, string, CancellationToken, Task<GamingSession>> Capture { get; init; } =
         (executable, pid, duration, path, token) => new GamingCapture().CaptureAsync(executable, pid, duration, path, token);

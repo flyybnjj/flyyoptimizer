@@ -11,6 +11,7 @@ internal static class OptimizationTargets
     internal const string GameDvr = @"Software\Microsoft\Windows\CurrentVersion\GameDVR";
     internal const string GameConfig = @"System\GameConfigStore";
     internal const string Run = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    internal const string GpuPreferences = @"Software\Microsoft\DirectX\UserGpuPreferences";
 }
 
 internal sealed record RegistryValueState(bool Exists, RegistryValueKind Kind = RegistryValueKind.None,

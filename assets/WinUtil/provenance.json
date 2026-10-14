@@ -1,0 +1,21 @@
+{
+  "component": "WinUtil selected Game Mode tweak",
+  "upstream_repository": "https://github.com/ChrisTitusTech/winutil",
+  "upstream_commit": "07ccd8e2e755a706f31569808b31f5b77acad6a9",
+  "upstream_commit_date": "2026-10-07T14:43:22Z",
+  "source_url": "https://raw.githubusercontent.com/ChrisTitusTech/winutil/07ccd8e2e755a706f31569808b31f5b77acad6a9/config/tweaks.json",
+  "source_path": "config/tweaks.json",
+  "selected_tweak_ids": [
+    "WPFToggleGameMode"
+  ],
+  "packaged_asset_name": "fortnite-winutil.json",
+  "sha256": "354CF19DD3FDB0354C8015137CE9A013C04D0EE9D781C4C460351CF82EE53A9B",
+  "extraction": "Exact upstream WPFToggleGameMode JSON object under its original property name; only the enclosing document is reduced.",
+  "execution": "Data only. No upstream PowerShell or runtime download.",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2022 CT Tech Group LLC",
+  "license_file": "../../licenses/WinUtil-MIT.txt",
+  "license_source": "https://raw.githubusercontent.com/ChrisTitusTech/winutil/07ccd8e2e755a706f31569808b31f5b77acad6a9/LICENSE",
+  "license_sha256": "469B54DADFA5C0D0002291E452FCAA32165356D3459E1DEE040404DB5439FB1C",
+  "acquired_on": "2026-10-14"
+}

@@ -96,6 +96,7 @@ internal sealed class OptimizationJournal
                 (value.Key == OptimizationTargets.GameDvr && value.Name == "AppCaptureEnabled" ||
                  value.Key == OptimizationTargets.GameConfig && value.Name == "GameDVR_Enabled"),
             "animations" => value.Kind == "Animations" && value.Key == "" && value.Name == "",
+            "fortnite-gpu" => value.Kind == "Registry" && value.Key == OptimizationTargets.GpuPreferences && FortniteGpuPreference.HasFortnitePathShape(value.Name),
             "power" => value.Kind == "Power" && value.Key == "" && value.Name == "" &&
                 Guid.TryParse(value.Previous.Text, out _) && Guid.TryParse(value.Intended.Text, out _),
             "startup" => value.Kind == "Registry" && value.Key == OptimizationTargets.Run &&

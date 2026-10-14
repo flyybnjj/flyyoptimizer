@@ -35,6 +35,7 @@ internal static class InteractionSmokeChecks
         var offline = false;
         var cancelScan = true;
         var native = new FixtureOptimizationService();
+        var fortnite = new FixtureFortniteProfileService(directory);
         string? capturedExecutable = null;
         var denyCapture = false;
         var elevationRequests = 0;
@@ -43,6 +44,8 @@ internal static class InteractionSmokeChecks
         var services = new ViewModelServices
         {
             CreateNativeTools = () => native,
+            CreateFortniteProfile = () => fortnite,
+            ChooseFortniteFolder = () => Path.Combine(directory, "Manually selected Fortnite fixture"),
             ResolvePresentMon = () => Environment.ProcessPath!,
             CaptureDirectory = Path.Combine(directory, "fixture-captures"),
             IsElevated = () => false,
@@ -80,6 +83,35 @@ internal static class InteractionSmokeChecks
         };
         using var model = new MainViewModel(Path.Combine(directory, "fixture-history"), services);
         var tools = model.Tools;
+        Check(!model.Fortnite.HasPreview && !model.Fortnite.ApplyCommand.CanExecute(null) && fortnite.ApplyCalls == 0, "Fortnite optimization requires reviewing detected installation and selected changes before any mutation");
+        await model.Fortnite.DetectAsync();
+        Check(model.Fortnite.HasPreview && model.Fortnite.IsInstalled && fortnite.ApplyCalls == 0 && model.Fortnite.Options.Count == 4 && !model.Fortnite.Options.Single(o => o.Option.Id == "gpu-preference").Selected && !model.Fortnite.Options.Single(o => o.Option.Id == "animations").Selected, "Fortnite preview detects paths without mutating and omits unavailable or optional changes from selection");
+        model.Fortnite.Options.Single(o => o.Option.Id == "winutil-game-mode").Selected = false;
+        await model.Fortnite.ApplyAsync();
+        Check(fortnite.AppliedIds.SequenceEqual(["fortnite-settings"]) && model.Fortnite.Steps.Single().Changed && model.Fortnite.HasChanges && opened.Count == 0, "Optimize PC dispatches only selected available Fortnite steps and presents actual results with restore history");
+        model.Fortnite.SelectedChange = model.Fortnite.Changes.Single();
+        await model.Fortnite.UndoAsync();
+        Check(fortnite.RestoredIds.SequenceEqual(["fixture-fortnite-change"]) && !model.Fortnite.HasChanges, "Fortnite restore dispatches selected saved change and refreshes history");
+        fortnite.PartialCancelNext = true;
+        await model.Fortnite.ApplyAsync();
+        Check(model.Fortnite.HasChanges && model.Fortnite.HasActionError && model.Fortnite.Status.Contains("cancelado") && fortnite.PreviewTokens[^1] == CancellationToken.None, "A partially cancelled Fortnite profile reloads saved backups without the cancelled token");
+        fortnite.FailPreviewNext = true;
+        await model.Fortnite.DetectAsync();
+        Check(!model.Fortnite.HasPreview && model.Fortnite.Options.Count == 0 && model.Fortnite.HasActionError && !model.Fortnite.ApplyCommand.CanExecute(null), "A failed replacement Fortnite preview disables stale selections and requires detecting again");
+        await ExecuteAsync(model.Fortnite.ChooseFolderCommand);
+        Check(model.Fortnite.IsInstalled && model.Fortnite.InstallPath.EndsWith("Manually selected Fortnite fixture") && fortnite.LastRequestedDirectory == model.Fortnite.InstallPath, "Manual folder choice is validated through profile preview and displayed in the app");
+        model.Fortnite.Options.Single(o => o.Option.Id == "gpu-preference").Selected = true;
+        Check(!model.Fortnite.Options.Single(o => o.Option.Id == "gpu-preference").Selected, "Unavailable Fortnite option cannot be selected through programmatic or keyboard input");
+        fortnite.PartialResultNext = true;
+        fortnite.CancelResultNext = true;
+        await model.Fortnite.ApplyAsync();
+        Check(model.Fortnite.Steps.Count == 2 && model.Fortnite.Steps.Count(s => s.Changed) == 1 && model.Fortnite.Steps.Any(s => !s.Success) && model.Fortnite.HasActionError && fortnite.LastRequestedDirectory == model.Fortnite.InstallPath, "Mixed profile results preserve successful and skipped steps instead of claiming complete optimization");
+        fortnite.MissingInstallation = true;
+        var appliedBeforeMissing = fortnite.ApplyCalls;
+        await model.Fortnite.DetectAsync();
+        Check(!model.Fortnite.IsInstalled && !model.Fortnite.Options.Single(o => o.Option.Id == "fortnite-settings").Option.Available && fortnite.ApplyCalls == appliedBeforeMissing, "Missing Fortnite disables game configuration and keeps preview read-only");
+        fortnite.MissingInstallation = false;
+        await model.Fortnite.DetectAsync();
         Check(tools.RefreshCommand.CanExecute(null) && !tools.ApplyPowerCommand.CanExecute(null) && !tools.UndoCommand.CanExecute(null), "Native improvement inspection is available before a full scan");
         await tools.RefreshAsync();
         Check(native.Mutations == 0 && !model.HasSnapshot && tools.HasInspection && tools.GamingToggles.Count == 2 && tools.ImprovementToggles.Single().State == "Activado", "Inspecting concrete settings needs no scan and makes no mutations");
@@ -203,10 +235,21 @@ internal static class InteractionSmokeChecks
         Check(!model.HasUpdates && model.UpdateStatus.Contains("no disponible") && model.HasError, "Unavailable update query reports useful result");
         model.ClearErrorCommand.Execute(null);
         Check(!model.HasError, "Dismiss error command");
+        var guidesBeforeStartup = model.Actions.Count;
+        var integratedSections = new List<string>();
+        model.SectionNavigationRequested += integratedSections.Add;
+        await model.OpenGuideAsync("OpenStartup");
+        Check(model.SelectedPage == 3 && opened.Count == 0 && model.Actions.Count == guidesBeforeStartup, "Review startup stays inside Improvements without opening Windows or logging an external guide");
+        Check(integratedSections.SequenceEqual(["StartupSection"]) && tools.HasStartup, "Review startup requests the editable startup section with current local entries");
+        var startupFinding = new FindingRow(new("fixture-startup", "Revisar inicio", "Fixture", "Fixture", Severity.Info, "Inicio", ActionKind.OpenStartup));
+        model.SelectedPage = 0;
+        await ExecuteAsync(model.OpenFindingCommand, startupFinding);
+        Check(model.SelectedPage == 3 && integratedSections.Count == 2 && integratedSections[^1] == "StartupSection" && opened.Count == 0 && model.Actions.Count == guidesBeforeStartup, "Summary recommendation opens the same integrated startup control without an external action");
         var guideKinds = Enum.GetValues<ActionKind>().Where(k => k is not (ActionKind.None or ActionKind.OpenManufacturer)).ToList();
         foreach (var kind in guideKinds)
             await model.OpenGuideAsync(kind.ToString());
-        Check(opened.SequenceEqual(guideKinds) && model.Actions.Count == guideKinds.Count + 1 && model.Actions.All(a => a.Outcome.Contains("no se comprobó ni aplicó")), "All Windows guide commands dispatch and log opened-only outcome");
+        var externalGuides = new[] { ActionKind.OpenWindowsUpdate, ActionKind.OpenOptionalDrivers, ActionKind.OpenGraphics, ActionKind.OpenTaskManager };
+        Check(opened.SequenceEqual(externalGuides) && model.Actions.Count == externalGuides.Length + 1 && model.Actions.All(a => a.Outcome.Contains("no se comprobó ni aplicó")), "Only explicit Windows capabilities without integrated controls dispatch and log external opened-only outcome");
         model.ProcessId = Environment.ProcessId.ToString(); denyCapture = true;
         await model.CaptureAsync(); denyCapture = false;
         native.BlockInspection = true;
@@ -222,6 +265,36 @@ internal static class InteractionSmokeChecks
         Check(model.IsClosing && !model.CanStartOperation && !model.ScanCommand.CanExecute(null), "Closing waits for cleanup and disables new work");
         using var unavailable = new MainViewModel(Path.Combine(directory, "missing-collector"), new ViewModelServices { CreateNativeTools = () => new FixtureOptimizationService(), ResolvePresentMon = () => throw new InvalidOperationException("Fixture bundled collector missing; extract FlyyOptimizer again.") });
         Check(!unavailable.HasBundledCollector && !unavailable.CaptureCommand.CanExecute(null) && unavailable.CollectorStatus.Contains("extract"), "Missing bundled collector blocks capture with package recovery instruction");
+        using var navigationModel = new MainViewModel(Path.Combine(directory, "navigation-visual"), new ViewModelServices
+        {
+            CreateNativeTools = () => new FixtureOptimizationService(), ResolvePresentMon = () => Environment.ProcessPath!,
+            Open = (_, _) => throw new InvalidOperationException("An integrated action must never launch another tool")
+        });
+        var navigationWindow = new MainWindow(navigationModel) { Width = 1240, Height = 820, ShowInTaskbar = false, ShowActivated = false, Left = -10000, Top = -10000 };
+        navigationWindow.Show();
+        await dispatcher.InvokeAsync(navigationWindow.UpdateLayout, DispatcherPriority.Loaded);
+        await navigationModel.OpenGuideAsync("OpenStartup");
+        await dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+        navigationWindow.UpdateLayout();
+        Check(navigationWindow.Pages.SelectedContent is ScrollViewer { VerticalOffset: > 0 } && navigationWindow.FindName("StartupSection") is FrameworkElement { ActualHeight: > 0 }, "Review startup scrolls the actual Improvements page to its editable section");
+        navigationWindow.Hide();
+        var closingProfile = new FixtureFortniteProfileService(directory) { BlockApply = true, BlockRecovery = true };
+        using var closingProfileModel = new MainViewModel(Path.Combine(directory, "profile-closing"), new ViewModelServices
+        {
+            CreateNativeTools = () => new FixtureOptimizationService(), CreateFortniteProfile = () => closingProfile,
+            ResolvePresentMon = () => Environment.ProcessPath!, Open = (_, _) => throw new InvalidOperationException("Profile cannot open external tools")
+        });
+        await closingProfileModel.Fortnite.DetectAsync();
+        var applyingProfile = closingProfileModel.Fortnite.ApplyAsync();
+        await closingProfile.ApplyStarted.Task;
+        await dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
+        Check(closingProfileModel.IsBusy && closingProfileModel.Fortnite.IsApplying && closingProfileModel.Fortnite.ProgressPercent == 50 && !closingProfileModel.ScanCommand.CanExecute(null) && !closingProfileModel.Tools.RefreshCommand.CanExecute(null) && !closingProfileModel.Fortnite.ApplyCommand.CanExecute(null), "Fortnite application reports real completed steps while sharing scan and native-tool busy gating");
+        var profileClose = closingProfileModel.PrepareToCloseAsync();
+        await closingProfile.ApplyCancelled.Task; await closingProfile.RecoveryStarted.Task;
+        Check(!profileClose.IsCompleted && !closingProfileModel.Fortnite.DetectCommand.CanExecute(null) && !closingProfileModel.OpenFortniteCommand.CanExecute(null), "Closing cancels Fortnite work and waits for partial-change recovery before releasing the app");
+        closingProfile.ReleaseRecovery.TrySetResult();
+        await applyingProfile; await profileClose;
+        Check(closingProfileModel.IsClosing && closingProfileModel.Fortnite.HasChanges && closingProfile.PreviewTokens[^1] == CancellationToken.None && !closingProfileModel.Fortnite.UndoCommand.CanExecute(null), "Closing finishes profile recovery with backups visible and all new profile actions blocked");
         return checks;
     }
 
@@ -230,6 +303,60 @@ internal static class InteractionSmokeChecks
         if (root is TextBlock text) yield return text.Text;
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
             foreach (var child in VisibleText(VisualTreeHelper.GetChild(root, i))) yield return child;
+    }
+
+    private sealed class FixtureFortniteProfileService(string directory) : IFortniteProfileService
+    {
+        private readonly List<AppliedOptimization> changes = [];
+        public int ApplyCalls { get; private set; }
+        public bool PartialCancelNext { get; set; }
+        public bool PartialResultNext { get; set; }
+        public bool CancelResultNext { get; set; }
+        public bool FailPreviewNext { get; set; }
+        public bool MissingInstallation { get; set; }
+        public bool BlockApply { get; set; }
+        public bool BlockRecovery { get; set; }
+        public string? LastRequestedDirectory { get; private set; }
+        public TaskCompletionSource ApplyStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ApplyCancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource RecoveryStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseRecovery { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IReadOnlyCollection<string> AppliedIds { get; private set; } = [];
+        public List<string> RestoredIds { get; } = [];
+        public List<CancellationToken> PreviewTokens { get; } = [];
+        public async Task<FortniteProfilePreview> PreviewAsync(string? installDirectory = null, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); PreviewTokens.Add(cancellationToken); LastRequestedDirectory = installDirectory;
+            if (FailPreviewNext) { FailPreviewNext = false; throw new InvalidOperationException("Fixture detection permission denied"); }
+            if (BlockRecovery && ApplyCalls > 0) { RecoveryStarted.TrySetResult(); await ReleaseRecovery.Task; }
+            return new FortniteProfilePreview(new(!MissingInstallation, MissingInstallation ? null : installDirectory ?? Path.Combine(directory, "Fortnite fixture"), MissingInstallation ? null : Path.Combine(directory, "FortniteClient-Win64-Shipping.exe"), MissingInstallation ? null : Path.Combine(directory, "GameUserSettings.ini"), false, MissingInstallation ? "Fixture not installed" : "Fixture installation detected"),
+                [new("winutil-game-mode", "Modo Juego", "Fixture system setting", true, true, "Disponible"), new("fortnite-settings", "Calidad competitiva", "Fixture lower visual quality", !MissingInstallation, true, "Juego cerrado"), new("gpu-preference", "GPU", "Fixture unavailable GPU", false, true, "No disponible"), new("animations", "Animaciones", "Fixture optional visuals", true, false, "Opcional")], changes.ToList(), "Fixture preview");
+        }
+        public async Task<FortniteProfileResult> ApplyAsync(IReadOnlyCollection<string> optionIds, IProgress<FortniteProfileProgress>? progress = null, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); ApplyCalls++; AppliedIds = optionIds.ToArray();
+            changes.Add(new(ApplyCalls == 1 ? "fixture-fortnite-change" : $"fixture-fortnite-change-{ApplyCalls}", "Fortnite fixture", DateTimeOffset.Now, true, "Fixture backup"));
+            if (BlockApply)
+            {
+                progress?.Report(new(1, 2, "Fixture first change complete")); ApplyStarted.TrySetResult();
+                try { await Task.Delay(Timeout.Infinite, cancellationToken); }
+                catch (OperationCanceledException) { ApplyCancelled.TrySetResult(); throw; }
+            }
+            if (PartialCancelNext) { PartialCancelNext = false; throw new OperationCanceledException("Fixture parcialmente cancelado", cancellationToken); }
+            if (PartialResultNext)
+            {
+                PartialResultNext = false;
+                var cancelled = CancelResultNext; CancelResultNext = false;
+                return new([new("winutil-game-mode", "Modo Juego", true, true, "Fixture applied"), new("fortnite-settings", "Calidad competitiva", false, false, "Fixture game opened; skipped")], cancelled, "Fixture partially applied");
+            }
+            progress?.Report(new(1, 1, "Fixture step"));
+            return new([new("fortnite-settings", "Calidad competitiva", true, true, "Fixture actual change")], false, "Fixture profile applied");
+        }
+        public Task<OptimizationOutcome> UndoAsync(string changeId, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); RestoredIds.Add(changeId); changes.Clear();
+            return Task.FromResult(new OptimizationOutcome(true, "Fixture restored", true));
+        }
     }
 
     private sealed class FixtureOptimizationService : INativeOptimizationService

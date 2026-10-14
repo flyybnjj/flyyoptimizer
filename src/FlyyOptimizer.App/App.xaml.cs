@@ -84,6 +84,11 @@ public partial class App : Application
                 for (var i = 0; i < pages.Length; i++)
                 {
                     model.SelectedPage = i;
+                    if (i == 4)
+                    {
+                        await model.WaitForFortniteDetectionAsync();
+                        if (!model.Fortnite.HasPreview) throw new InvalidOperationException("El perfil integrado de Fortnite no pudo cargar: " + model.Fortnite.Status);
+                    }
                     await SettleLayoutAsync(window);
                     await RenderAsync(window, Path.Combine(directory, pages[i] + ".png"));
                 }
@@ -106,7 +111,10 @@ public partial class App : Application
                     InitialActualSize = initialActual, MinimumActualSize = new { Width = window.ActualWidth, Height = window.ActualHeight },
                     CapturedGaming = false, AppliedSystemChanges = false,
                     InteractionChecks = interactionChecks.Count, ModelLookup = model.OemStatus, ModelPackages = model.OemPackages.Count, CaptureProcesses = model.CaptureProcesses.Count,
-                    SerialLookupRequested = false, LiveScanRendered = liveRender is not null
+                    SerialLookupRequested = false, LiveScanRendered = liveRender is not null,
+                    FortnitePreviewReady = model.Fortnite.HasPreview, FortniteInstalled = model.Fortnite.IsInstalled,
+                    FortniteDetectedDirectory = model.Fortnite.IsInstalled ? model.Fortnite.InstallPath : null,
+                    FortniteAvailableOptions = model.Fortnite.Options.Count(option => option.Option.Available)
                 });
             }
             model.Dispose(); window.Close(); Shutdown(0);
@@ -169,7 +177,8 @@ public partial class App : Application
             await SettleLayoutAsync(window);
             if (window.Pages.SelectedContent is System.Windows.Controls.ScrollViewer viewer)
             {
-                viewer.ScrollToVerticalOffset(offset);
+                if (page == 4) window.CaptureSection.BringIntoView();
+                else viewer.ScrollToVerticalOffset(offset);
                 await RenderAsync(window, Path.Combine(directory, name + suffix + ".png"));
                 viewer.ScrollToTop();
                 await SettleLayoutAsync(window);

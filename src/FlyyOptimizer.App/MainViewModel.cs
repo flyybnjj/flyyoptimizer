@@ -41,6 +41,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private SessionDisplay? sessionB;
     private SavedReport? selectedReport;
     private int selectedPage;
+    private Task<bool>? fortniteDetection;
 
     public MainViewModel(string? reportDirectory = null) : this(reportDirectory, new ViewModelServices()) { }
 
@@ -50,6 +51,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         this.services = services;
         processElevated = services.IsElevated();
         Tools = new(services.CreateNativeTools(), RunBusyAsync, () => CanStartOperation);
+        Fortnite = new(services.CreateFortniteProfile(), RunBusyAsync, () => CanStartOperation, Tools.RefreshStateAsync, services.ChooseFortniteFolder);
+        Fortnite.PropertyChanged += (_, change) => { if (change.PropertyName == nameof(Fortnite.Status)) Status = Fortnite.Status; };
         Tools.PropertyChanged += (_, change) =>
         {
             if (change.PropertyName == nameof(Tools.Status)) Status = Tools.Status;
@@ -78,6 +81,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         OpenElevatedCommand = Command(_ => OpenElevatedAsync(), _ => CanStartOperation && CanRequestCaptureElevation);
         RefreshProcessesCommand = Command(_ => RefreshProcessesAsync(), _ => CanStartOperation);
         NavigateCommand = new RelayCommand(parameter => { if (int.TryParse(parameter?.ToString(), out var index) && index is >= 0 and <= 5) SelectedPage = index; });
+        OpenFortniteCommand = Command(_ => OpenFortniteAsync(), _ => CanStartOperation);
         ClearErrorCommand = new RelayCommand(_ => Error = "");
     }
 
@@ -99,8 +103,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand OpenElevatedCommand { get; }
     public ICommand RefreshProcessesCommand { get; }
     public ICommand NavigateCommand { get; }
+    public ICommand OpenFortniteCommand { get; }
     public ICommand ClearErrorCommand { get; }
+    public event Action<string>? SectionNavigationRequested;
     public ToolsViewModel Tools { get; }
+    public FortniteViewModel Fortnite { get; }
     public ObservableCollection<DriverInfo> Drivers { get; } = [];
     public System.ComponentModel.ICollectionView DriversView { get; }
     public ObservableCollection<DriverUpdateInfo> Updates { get; } = [];
@@ -172,8 +179,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
          CaptureError.Contains("acceso denegado", StringComparison.OrdinalIgnoreCase) ||
          CaptureError.Contains("requiere permisos de administrador", StringComparison.OrdinalIgnoreCase));
     public ProcessChoice? SelectedProcess { get => selectedProcess; set { if (Set(ref selectedProcess, value) && value is not null) ProcessId = value.Id.ToString(); } }
-    public int SelectedPage { get => selectedPage; set { if (Set(ref selectedPage, value)) { Changed(nameof(PageTitle)); Changed(nameof(PageDescription)); } } }
+    public int SelectedPage
+    {
+        get => selectedPage;
+        set
+        {
+            if (!Set(ref selectedPage, value)) return;
+            Changed(nameof(PageTitle)); Changed(nameof(PageDescription));
+            if (value == 4 && !Fortnite.HasPreview && CanStartOperation) fortniteDetection = Fortnite.DetectAsync();
+        }
+    }
     public SavedReport? SelectedReport { get => selectedReport; set { Set(ref selectedReport, value); CommandManager.InvalidateRequerySuggested(); } }
+    internal Task WaitForFortniteDetectionAsync() => (Task?)fortniteDetection ?? Task.CompletedTask;
     public SessionDisplay? SessionA { get => sessionA; private set { Set(ref sessionA, value); Changed(null); } }
     public SessionDisplay? SessionB { get => sessionB; private set { Set(ref sessionB, value); Changed(null); } }
     public IReadOnlyList<FindingRow> Findings { get; private set; } = [];
@@ -409,12 +426,50 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private async Task OpenFindingAsync(object? parameter)
     {
         if (parameter is not FindingRow row) return;
+        if (await OpenIntegratedAsync(row.Finding.Action)) return;
         await RunBusyAsync("Abriendo guía…", async _ => { services.Open(row.Finding.Action, row.Finding.ActionUrl); await RecordGuideAsync(row.Finding.Id, row.Title); });
     }
     internal async Task OpenGuideAsync(object? parameter)
     {
         if (!Enum.TryParse<ActionKind>(parameter?.ToString(), out var action) || action is ActionKind.None or ActionKind.OpenManufacturer) return;
+        if (await OpenIntegratedAsync(action)) return;
         await RunBusyAsync("Abriendo herramienta oficial…", async _ => { services.Open(action, null); await RecordGuideAsync(action.ToString(), Labels.Action(action)); });
+    }
+    private async Task<bool> OpenIntegratedAsync(ActionKind action)
+    {
+        var section = action switch
+        {
+            ActionKind.OpenStartup => "StartupSection",
+            ActionKind.OpenPower => "PowerSection",
+            ActionKind.OpenStorage => "TemporarySection",
+            ActionKind.OpenGameMode => "GamingSettingsSection",
+            _ => null
+        };
+        if (section is null) return false;
+        if (!CanStartOperation) return true;
+        SelectedPage = action == ActionKind.OpenGameMode ? 4 : 3;
+        if (fortniteDetection is { IsCompleted: false }) await fortniteDetection;
+        await Tools.RefreshAsync();
+        if (!IsClosing)
+        {
+            SectionNavigationRequested?.Invoke(section);
+            Status = action switch
+            {
+                ActionKind.OpenStartup => "Inicio del usuario dentro de Flyy: elige una entrada para retirarla o restaurarla.",
+                ActionKind.OpenStorage => "Temporales dentro de Flyy: revisa los archivos antes de eliminarlos.",
+                ActionKind.OpenPower => "Energía dentro de Flyy: elige uno de los planes disponibles en este equipo.",
+                _ => "Modo Juego dentro de Flyy: revisa el estado antes de cambiarlo."
+            };
+        }
+        return true;
+    }
+    private async Task OpenFortniteAsync()
+    {
+        if (!CanStartOperation) return;
+        SelectedPage = 4;
+        if (fortniteDetection is not null) await fortniteDetection;
+        if (!Fortnite.HasPreview && CanStartOperation) await Fortnite.DetectAsync();
+        if (!IsClosing) SectionNavigationRequested?.Invoke("FortniteProfileSection");
     }
     private static string? ManufacturerUrl(DriverInfo driver) => WindowsActions.ManufacturerUrl(driver.Manufacturer) ?? WindowsActions.ManufacturerUrl(driver.Provider);
     private async Task OpenManufacturerAsync(object? parameter)

@@ -70,6 +70,9 @@ public sealed class NativeOptimizationService : INativeOptimizationService
         }, cancellationToken);
 
     public Task<OptimizationOutcome> SetPowerSchemeAsync(string id, CancellationToken cancellationToken = default) =>
+        SetPowerSchemeCheckedAsync(id, null, cancellationToken);
+
+    internal Task<OptimizationOutcome> SetPowerSchemeCheckedAsync(string id, Func<bool>? canApply, CancellationToken cancellationToken) =>
         ExecuteAsync(entries =>
         {
             if (!Guid.TryParse(id, out var target)) throw new ArgumentException("Selecciona un plan de energía existente.");
@@ -77,7 +80,35 @@ public sealed class NativeOptimizationService : INativeOptimizationService
                 ?? throw new ArgumentException("El plan de energía ya no está disponible.");
             return NewEntry("power", "Plan de energía: " + scheme.Name,
                 [new("Power", "", "", RegistryValueState.String(platform.GetActivePowerScheme().ToString()), RegistryValueState.String(target.ToString()))]);
-        }, cancellationToken);
+        }, cancellationToken, canApply);
+
+    public Task<OptimizationOutcome> ApplyWinUtilGameModeAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAsync(_ => NewEntry("game-mode", "WinUtil · Modo Juego: activar",
+            WinUtilGameMode.Read().Select(value => RegistryChange(OptimizationTargets.GameBar, value.Name,
+                RegistryValueState.Dword(value.Value))).ToList()), cancellationToken);
+
+    public Task<OptimizationOutcome> SetGameGpuPreferenceAsync(string executablePath, CancellationToken cancellationToken = default) =>
+        SetGameGpuPreferenceCheckedAsync(executablePath, null, cancellationToken);
+
+    internal Task<OptimizationOutcome> SetGameGpuPreferenceCheckedAsync(string executablePath, Func<bool>? canApply, CancellationToken cancellationToken) =>
+        ExecuteAsync(_ =>
+        {
+            var path = FortniteGpuPreference.ValidateExecutable(executablePath);
+            var previous = platform.ReadValue(OptimizationTargets.GpuPreferences, path);
+            var intended = RegistryValueState.String(FortniteGpuPreference.HighPerformanceText(previous));
+            return NewEntry("fortnite-gpu", "Fortnite · Preferencia GPU de alto rendimiento",
+                [new("Registry", OptimizationTargets.GpuPreferences, path, previous, intended)]);
+        }, cancellationToken, canApply);
+
+    public bool? ReadGameGpuPreference(string executablePath)
+    {
+        try
+        {
+            var path = FortniteGpuPreference.ValidateExecutable(executablePath);
+            return FortniteGpuPreference.IsHighPerformance(platform.ReadValue(OptimizationTargets.GpuPreferences, path));
+        }
+        catch (Exception ex) when (IsExpectedFailure(ex)) { return null; }
+    }
 
     public Task<OptimizationOutcome> SetStartupEnabledAsync(string id, bool enabled, CancellationToken cancellationToken = default) =>
         ExecuteAsync(entries =>
@@ -137,7 +168,7 @@ public sealed class NativeOptimizationService : INativeOptimizationService
     }, cancellationToken);
 
     private Task<OptimizationOutcome> ExecuteAsync(Func<List<OptimizationJournalEntry>, OptimizationJournalEntry> create,
-        CancellationToken token) => Task.Run(async () =>
+        CancellationToken token, Func<bool>? canApply = null) => Task.Run(async () =>
     {
         OptimizationJournalEntry? entry = null;
         List<OptimizationJournalEntry>? entries = null;
@@ -146,6 +177,7 @@ public sealed class NativeOptimizationService : INativeOptimizationService
             await using var lease = await journal.LeaseAsync(token);
             entries = await journal.ReadAsync(token);
             token.ThrowIfCancellationRequested();
+            if (canApply?.Invoke() == false) return new OptimizationOutcome(false, "La alimentación cambió o no se confirmó corriente. No se aplicó el cambio.");
             entry = create(entries);
             entry.Values.RemoveAll(x => x.Previous.Same(x.Intended));
             if (entry.Values.Count == 0) return new OptimizationOutcome(true, "La preferencia ya tiene ese estado.");
@@ -157,6 +189,7 @@ public sealed class NativeOptimizationService : INativeOptimizationService
                 foreach (var value in entry.Values)
                 {
                     token.ThrowIfCancellationRequested();
+                    if (canApply?.Invoke() == false) throw new InvalidOperationException("La alimentación cambió. Se conservó el estado de Windows.");
                     if (!ReadCurrent(value).Same(value.Previous)) throw new InvalidOperationException("La preferencia cambió antes de aplicarla. Actualiza su estado.");
                     WriteCurrent(value, value.Intended);
                     if (!ReadCurrent(value).Same(value.Intended)) throw new IOException("Windows no confirmó la preferencia aplicada.");

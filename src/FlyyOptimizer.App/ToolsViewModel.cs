@@ -77,7 +77,7 @@ public sealed class ToolsViewModel : ObservableObject
         Status = "Ajustes actuales leídos. Solo se aplican al pulsar un control.";
     });
 
-    private async Task RefreshStateAsync(CancellationToken token)
+    internal async Task RefreshStateAsync(CancellationToken token)
     {
         var overview = await service.InspectAsync(token);
         token.ThrowIfCancellationRequested();

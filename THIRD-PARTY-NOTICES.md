@@ -44,7 +44,14 @@ No se modificó el código de estas dependencias. Los metadatos `.nuspec` inclui
 
 ## Referencias de diseño
 
-UniGetUI (MIT) y Winutil (MIT) se consultaron como referencias. No se incluyó su código ni se ejecutaron sus scripts. Optimizer (GPL-3.0) fue una referencia histórica; no se incluyó su código.
+UniGetUI (MIT) se consultó como referencia sin incluir su código. Optimizer (GPL-3.0) fue una referencia histórica; no se incluyó su código.
+
+## Selección WinUtil para Fortnite
+
+- Proyecto: https://github.com/ChrisTitusTech/winutil, commit `07ccd8e2e755a706f31569808b31f5b77acad6a9`.
+- Se incorpora el objeto de configuración `WPFToggleGameMode` de `config/tweaks.json` en `assets/WinUtil/fortnite-winutil.json`, embebido para uso local y copiado con su procedencia a `tools/WinUtil/`.
+- Copyright (c) 2022 CT Tech Group LLC. Licencia MIT íntegra en `licenses/WinUtil-MIT.txt`.
+- Flyy valida la selección y aplica sus dos preferencias HKCU mediante su backend nativo con respaldo del estado original. No incorpora ni ejecuta los scripts o la interfaz de WinUtil. Los demás ajustes del perfil Fortnite son implementación de Flyy.
 
 Lenovo Legion Toolkit (GPL-3.0) se consultó como referencia de identificación y acceso al servicio oficial Lenovo. La implementación de FlyyOptimizer se escribió independientemente; no se copió ni incluyó código o binarios de Toolkit. Las respuestas del catálogo y las descargas proceden de Lenovo; la app abre los enlaces oficiales y no distribuye los instaladores.
 
