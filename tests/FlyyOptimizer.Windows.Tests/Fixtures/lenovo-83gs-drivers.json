@@ -1,0 +1,161 @@
+{
+  "body": {
+    "DownloadItems": [
+      {
+        "OperatingSystemKeys": [
+          "Windows 11 (64-bit)"
+        ],
+        "Title": "NVIDIA VGA Driver for Windows 11 (64-bit) - LOQ 15IRX9, LOQ 15IAX9",
+        "Date": {
+          "Unix": 1767164580000
+        },
+        "Updated": {
+          "Unix": 1767926031000
+        },
+        "DocId": "DS565703",
+        "Files": [
+          {
+            "Name": "NVIDIA VGA Driver",
+            "TypeString": "EXE",
+            "Version": "Nvidia_32.0.15.8186",
+            "URL": "https://download.lenovo.com/consumer/mobiles/ttl30e7fgzt2bhf0.exe",
+            "Size": "1008.55 MB",
+            "SHA1": "44d81030181b1cd469e69fc9da829ca904c3acbe",
+            "SHA256": "966b39ad5c9af1b63126a8e3587cef55dd09c34b901c5389c00b12a02ab46b3a",
+            "MD5": "a7a003634317aa77e9911f0afe0a7505",
+            "Priority": "Recommended",
+            "PriorityWeight": 2,
+            "ReadmeUrl": "",
+            "HasReadme": false,
+            "OperatingSystemKeys": [],
+            "TypeEnString": "",
+            "FileName": "",
+            "DataIndicator": "",
+            "Date": {
+              "Unix": 1767164640000
+            },
+            "Released": null
+          }
+        ],
+        "Hit": "886",
+        "Audiences": [
+          {
+            "Id": "ANONYMOUS",
+            "Name": "Anonymous"
+          }
+        ],
+        "InWarranty": false,
+        "RequireLogin": false,
+        "FixID": "",
+        "Summary": "This package provides NVIDIA VGA Driver and is supported on LOQ 15IRX9, LOQ 15IAX9 and running the following Operating Systems: Windows 11 (64-bit)",
+        "AlertDataLoss": false,
+        "LanguageCode": "en",
+        "Countries": [],
+        "RebootRequired": 0,
+        "PNCheck": false,
+        "Brocade": false,
+        "Eods": "",
+        "RestrictedCountries": [],
+        "RedirectCode": 0,
+        "RedirectTo": "",
+        "ID": [
+          "DS565703-NVIDIA-VGA-DRIVER-FOR-WINDOWS-11-64-BIT-LOQ-15IRX9",
+          "DS565703",
+          "26E90A00-7EAE-11EE-B3D5-15BC632309E9"
+        ],
+        "OEMOnly": false,
+        "SEOH1Content": "NVIDIA VGA Driver for Windows 11 (64-bit) - LOQ 15IRX9, LOQ 15IAX9",
+        "Highlight": false,
+        "MetaData": "Windows 11,64-bit,,LOQ 15IRX9,Nvidia VGA Driver,LOQ 15IAX9,DS565703",
+        "SummaryInfo": {
+          "Priority": "Recommended",
+          "Version": "Nvidia_32.0.15.8186"
+        },
+        "rolePass": true,
+        "Category": {
+          "Name": "Display and Video Graphics",
+          "Classify": "dl-category-video",
+          "ID": "635380F4-448F-4129-AA77-265289D96F6F"
+        }
+      },
+      {
+        "OperatingSystemKeys": [
+          "Windows 11 (64-bit)"
+        ],
+        "Title": "Intel VGA Driver for Windows 11 (64-bit) - LOQ 15IRX9, LOQ 15IAX9",
+        "Date": {
+          "Unix": 1767164520000
+        },
+        "Updated": {
+          "Unix": 1769999840000
+        },
+        "DocId": "DS565702",
+        "Files": [
+          {
+            "Name": "Intel VGA Driver",
+            "TypeString": "EXE",
+            "Version": "32.0.101.7026",
+            "URL": "https://download.lenovo.com/consumer/mobiles/ttl3077fpfjtxgf0.exe",
+            "Size": "540.65 MB",
+            "SHA1": "440e33a5824cc9aa2b7cb5d72c728eed811866f4",
+            "SHA256": "951db330b11aefc561253e3b69b42d96b5eec817ab927e5a13d6e13e8a598c0a",
+            "MD5": "331ae532add975939619f9ab911d40d2",
+            "Priority": "Recommended",
+            "PriorityWeight": 2,
+            "ReadmeUrl": "",
+            "HasReadme": false,
+            "OperatingSystemKeys": [],
+            "TypeEnString": "",
+            "FileName": "",
+            "DataIndicator": "",
+            "Date": {
+              "Unix": 1767164580000
+            },
+            "Released": null
+          }
+        ],
+        "Hit": "886",
+        "Audiences": [
+          {
+            "Id": "ANONYMOUS",
+            "Name": "Anonymous"
+          }
+        ],
+        "InWarranty": false,
+        "RequireLogin": false,
+        "FixID": "",
+        "Summary": "This package provides Intel VGA Driver and is supported on LOQ 15IRX9, LOQ 15IAX9 and running the following Operating Systems: Windows 11 (64-bit)",
+        "AlertDataLoss": false,
+        "LanguageCode": "en",
+        "Countries": [],
+        "RebootRequired": 0,
+        "PNCheck": false,
+        "Brocade": false,
+        "Eods": "",
+        "RestrictedCountries": [],
+        "RedirectCode": 0,
+        "RedirectTo": "",
+        "ID": [
+          "DS565702-INTEL-VGA-DRIVER-FOR-WINDOWS-11-64-BIT-LOQ-15IRX9",
+          "DS565702",
+          "B55850D0-7EAD-11EE-B3D5-15BC632309E9"
+        ],
+        "OEMOnly": false,
+        "SEOH1Content": "Intel VGA Driver for Windows 11 (64-bit) - LOQ 15IRX9, LOQ 15IAX9",
+        "Highlight": false,
+        "MetaData": "Windows 11,64-bit,,LOQ 15IRX9,Intel VGA Driver,LOQ 15IAX9,DS565702",
+        "SummaryInfo": {
+          "Priority": "Recommended",
+          "Version": "32.0.101.7026"
+        },
+        "rolePass": true,
+        "Category": {
+          "Name": "Display and Video Graphics",
+          "Classify": "dl-category-video",
+          "ID": "635380F4-448F-4129-AA77-265289D96F6F"
+        }
+      }
+    ]
+  },
+  "message": "succeed"
+}

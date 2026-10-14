@@ -10,21 +10,23 @@ namespace FlyyOptimizer.Windows;
 
 public sealed class WindowsCollector
 {
-    public Task<SystemSnapshot> CollectAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    public Task<SystemSnapshot> CollectAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default, IProgress<ScanProgress>? detailedProgress = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.Run(() => Collect(progress, cancellationToken), cancellationToken);
+        return Task.Run(() => Collect(progress, cancellationToken, detailedProgress), cancellationToken);
     }
 
-    private static SystemSnapshot Collect(IProgress<string>? progress, CancellationToken token)
+    private static SystemSnapshot Collect(IProgress<string>? progress, CancellationToken token, IProgress<ScanProgress>? detailedProgress)
     {
         var snapshot = new SystemSnapshot();
         progress?.Report("Leyendo sistema, CPU y gráficos…");
         snapshot = snapshot with { Machine = Machine(snapshot.Notes, token) };
+        detailedProgress?.Report(new ScanProgress("Equipo", "Sistema, CPU, gráficos e identidad del equipo leídos.", 1, 14));
         token.ThrowIfCancellationRequested();
         progress?.Report("Leyendo unidades y dispositivos…");
         snapshot.Drives.AddRange(Drives(snapshot.Notes, token));
         snapshot.Drivers.AddRange(Drivers(snapshot.Notes, token));
+        detailedProgress?.Report(new ScanProgress("Dispositivos", "Unidades y controladores instalados leídos.", 2, 14));
         token.ThrowIfCancellationRequested();
         progress?.Report("Leyendo inicio, procesos y red…");
         snapshot.Startup.AddRange(Startup(snapshot.Notes, token));
@@ -51,8 +53,11 @@ public sealed class WindowsCollector
             }
         });
 
+        detailedProgress?.Report(new ScanProgress("Actividad", "Inicio, procesos y adaptadores de red leídos.", 3, 14));
+        token.ThrowIfCancellationRequested();
         using var sensors = new HardwareSensors(snapshot.Notes, snapshot.Machine.IsAdministrator);
         NativeMetrics.CpuTimes? previous = NativeMetrics.ReadCpuTimes();
+        detailedProgress?.Report(new ScanProgress("Sensores", "Observación de recursos preparada con los sensores accesibles.", 4, 14));
         for (var index = 0; index < 10; index++)
         {
             progress?.Report($"Observando recursos: muestra {index + 1} de 10…");
@@ -60,7 +65,7 @@ public sealed class WindowsCollector
             var current = NativeMetrics.ReadCpuTimes();
             var memory = NativeMetrics.ReadMemory();
             var sensor = sensors.Read();
-            snapshot.Samples.Add(new MetricSample
+            var sample = new MetricSample
             {
                 CpuPercent = previous is { } before && current is { } now
                     ? AcquisitionNormalization.CpuPercent(before.Idle, before.Kernel, before.User, now.Idle, now.Kernel, now.User) : null,
@@ -68,7 +73,9 @@ public sealed class WindowsCollector
                 CpuTemperature = sensor.CpuTemperature,
                 GpuTemperature = sensor.GpuTemperature,
                 GpuPercent = sensor.GpuPercent
-            });
+            };
+            snapshot.Samples.Add(sample);
+            detailedProgress?.Report(new ScanProgress("Recursos", $"Muestra {index + 1} de 10 recibida.", index + 5, 14, sample));
             previous = current;
         }
         if (snapshot.Samples.Any(s => s.CpuPercent is null)) snapshot.Notes.Add("CPU: Windows no entregó alguna lectura de uso; queda como desconocida.");
@@ -81,12 +88,16 @@ public sealed class WindowsCollector
 
     private static MachineInfo Machine(List<string> notes, CancellationToken token)
     {
-        var system = Query("Sistema", "SELECT Manufacturer, Model, TotalPhysicalMemory, PCSystemType FROM Win32_ComputerSystem", notes, token).FirstOrDefault();
+        var system = Query("Sistema", "SELECT Manufacturer, Model, SystemFamily, SystemSKUNumber, TotalPhysicalMemory, PCSystemType FROM Win32_ComputerSystem", notes, token).FirstOrDefault();
+        var product = Query("Producto", "SELECT Name, Version FROM Win32_ComputerSystemProduct", notes, token).FirstOrDefault();
+        var enclosures = Query("Chassis", "SELECT ChassisTypes FROM Win32_SystemEnclosure", notes, token);
         var os = Query("Windows", "SELECT Caption, Version, LastBootUpTime FROM Win32_OperatingSystem", notes, token).FirstOrDefault();
         var cpus = Query("CPU", "SELECT Name, NumberOfLogicalProcessors FROM Win32_Processor", notes, token);
         var gpus = Query("GPU", "SELECT Name FROM Win32_VideoController", notes, token);
         var battery = NativeMetrics.ReadPowerStatus();
         var memory = NativeMetrics.ReadMemory();
+        var classification = DeviceClassifier.Classify(Number(system, "PCSystemType") is { } pcSystemType ? (int)pcSystemType : null,
+            enclosures.SelectMany(row => row.GetValueOrDefault("ChassisTypes") is ushort[] values ? values.Select(value => (int)value) : []), battery is { BatteryPresent: true });
         var power = (Guid: "", Name: "");
         TryProvider("Plan energético", notes, () => power = NativeMetrics.ReadPowerPlan());
         var isAdmin = false;
@@ -104,13 +115,16 @@ public sealed class WindowsCollector
         return new MachineInfo
         {
             Manufacturer = Text(system, "Manufacturer"), Model = Text(system, "Model"),
+            ProductName = new[] { Text(product, "Version"), Text(system, "SystemFamily"), Text(product, "Name") }.FirstOrDefault(OemDriverService.IsUsableIdentity) ?? "",
+            SystemSku = OemDriverService.IsUsableIdentity(Text(system, "SystemSKUNumber")) ? Text(system, "SystemSKUNumber") : "",
+            DeviceKind = classification.Kind, DeviceTypeEvidence = classification.Evidence,
             OsName = Text(os, "Caption"), OsVersion = Text(os, "Version"),
             CpuName = string.Join(" / ", cpus.Select(c => Text(c, "Name")).Distinct()),
             GpuName = string.Join(" / ", gpus.Select(c => Text(c, "Name")).Distinct()),
             LogicalCores = cpus.Count > 0 ? (int)cpus.Sum(c => Number(c, "NumberOfLogicalProcessors") ?? 0) : Environment.ProcessorCount,
             TotalMemoryGb = (memory?.TotalBytes ?? (ulong)(Number(system, "TotalPhysicalMemory") ?? 0)) / 1073741824d,
             UptimeHours = uptime, PowerPlanGuid = power.Guid, PowerPlanName = power.Name,
-            IsLaptop = Number(system, "PCSystemType") == 2 || battery is { BatteryPresent: true },
+            IsLaptop = classification.Kind == DeviceKind.Laptop,
             OnBattery = battery is { OnBattery: true }, IsAdministrator = isAdmin
         };
     }

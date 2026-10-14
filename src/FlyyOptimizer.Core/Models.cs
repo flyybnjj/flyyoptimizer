@@ -18,6 +18,10 @@ public sealed record MachineInfo
 {
     public string Manufacturer { get; init; } = "";
     public string Model { get; init; } = "";
+    public string ProductName { get; init; } = "";
+    public string SystemSku { get; init; } = "";
+    public DeviceKind DeviceKind { get; init; }
+    public string DeviceTypeEvidence { get; init; } = "";
     public string OsName { get; init; } = "";
     public string OsVersion { get; init; } = "";
     public string CpuName { get; init; } = "";
@@ -31,6 +35,11 @@ public sealed record MachineInfo
     public bool OnBattery { get; init; }
     public bool IsAdministrator { get; init; }
 }
+
+public enum DeviceKind { Unknown, Laptop, Desktop }
+public sealed record ScanProgress(string Stage, string Detail, int CompletedSteps, int TotalSteps, MetricSample? Sample = null);
+public sealed record OemDriverPackage(string Name, string Version, string Category, string ReleaseDate, string OperatingSystem, string? DownloadUrl, string? DetailUrl);
+public sealed record OemSupportResult(bool Success, string Provider, string DeviceName, string SupportUrl, List<OemDriverPackage> Packages, string Message, bool ModelMatched, string SerialDisplay = "");
 
 public sealed record MetricSample
 {

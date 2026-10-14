@@ -15,7 +15,7 @@ public sealed class WindowsActionsTests
     [InlineData("ASUSTeK COMPUTER INC.", "www.asus.com")]
     [InlineData("Acer", "www.acer.com")]
     [InlineData("Micro-Star International Co., Ltd.", "www.msi.com")]
-    [InlineData("Microsoft Corporation", "support.microsoft.com")]
+    [InlineData("Microsoft Corporation", "www.catalog.update.microsoft.com")]
     public void Known_manufacturers_return_official_https_sites(string manufacturer, string host)
     {
         var url = new Uri(WindowsActions.ManufacturerUrl(manufacturer)!);
@@ -80,4 +80,17 @@ public sealed class WindowsActionsTests
     [Fact]
     public void Undefined_actions_are_rejected() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => WindowsActions.CreateStartInfo((ActionKind)999));
+
+    [Fact]
+    public void Microsoft_inbox_drivers_are_not_routed_to_surface_support() =>
+        Assert.DoesNotContain("surface", WindowsActions.ManufacturerUrl("Microsoft Corporation")!, StringComparison.OrdinalIgnoreCase);
+
+    [Fact]
+    public void Official_lenovo_downloads_open_as_https_links_without_installer_arguments()
+    {
+        var start = WindowsActions.CreateStartInfo(ActionKind.OpenManufacturer, "https://download.lenovo.com/pccbbs/mobiles/driver.exe");
+        Assert.Equal("https://download.lenovo.com/pccbbs/mobiles/driver.exe", start.FileName);
+        Assert.True(start.UseShellExecute);
+        Assert.Empty(start.Arguments);
+    }
 }

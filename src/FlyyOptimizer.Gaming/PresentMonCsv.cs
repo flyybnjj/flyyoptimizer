@@ -11,8 +11,9 @@ public static class PresentMonCsv
     private const int MaximumFrames = 1_000_000;
 
     /// <summary>Reads one process and swap chain. Percentiles use nearest rank.</summary>
-    public static GamingSession Parse(string path)
+    public static GamingSession Parse(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var fullPath = Path.GetFullPath(path);
         using var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -21,7 +22,7 @@ public static class PresentMonCsv
 
         using var reader = new StreamReader(stream, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true);
         string? headerLine;
-        do { headerLine = reader.ReadLine(); } while (headerLine is not null && string.IsNullOrWhiteSpace(headerLine));
+        do { cancellationToken.ThrowIfCancellationRequested(); headerLine = reader.ReadLine(); } while (headerLine is not null && string.IsNullOrWhiteSpace(headerLine));
         if (headerLine is null)
             throw new InvalidDataException("El CSV está vacío.");
 
@@ -47,6 +48,7 @@ public static class PresentMonCsv
         using var parser = CreateParser(reader, delimiter);
         while (!parser.EndOfData)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string[]? fields;
             try { fields = parser.ReadFields(); }
             catch (MalformedLineException) { ignoredRows++; continue; }
@@ -86,8 +88,10 @@ public static class PresentMonCsv
         if (times.Count == 0)
             throw new InvalidDataException("El CSV no contiene frame times positivos y finitos válidos.");
 
+        cancellationToken.ThrowIfCancellationRequested();
         var sorted = times.ToArray();
         Array.Sort(sorted);
+        cancellationToken.ThrowIfCancellationRequested();
         var average = Mean(times, 0);
         var slowestCount = (int)Math.Ceiling(times.Count * 0.01);
         var slowestMean = Mean(sorted, sorted.Length - slowestCount);

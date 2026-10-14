@@ -88,7 +88,7 @@ public sealed class GamingCapture
                 throw new InvalidOperationException($"PresentMon terminó con código {collector.ExitCode}. Comprueba permisos ETW y que hayas elegido la consola oficial 2.3.1 o posterior. {details}");
             }
             if (!File.Exists(temporaryCsv)) throw new InvalidDataException("PresentMon no generó un CSV. Comprueba que el PID siga activo y esté presentando frames.");
-            var session = await Task.Run(() => PresentMonCsv.Parse(temporaryCsv), cancellationToken).ConfigureAwait(false);
+            var session = await Task.Run(() => PresentMonCsv.Parse(temporaryCsv, cancellationToken), cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             File.Move(temporaryCsv, destination, overwrite: false);
             return session with { SourceFile = destination };

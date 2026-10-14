@@ -17,11 +17,11 @@ Para compilar necesitas el SDK .NET 10. El script también reconoce el SDK aisla
 
 ## Uso
 
-1. Pulsa **Analizar equipo**. Se inventaría el hardware y se toman varias muestras durante una observación breve.
+1. Pulsa **Analizar equipo**. Sigue las etapas y los recursos en vivo mientras se identifica si es portátil o escritorio, el fabricante, el modelo comercial y el SKU. Las lecturas son reales y puedes cancelar.
 2. Revisa **Hardware** y **Mejoras**. Cada recomendación explica sus lecturas y ofrece un siguiente paso cuando corresponde.
-3. En **Drivers**, consulta las versiones instaladas y busca ofertas de Windows Update. La fecha de un driver no demuestra que esté desactualizado.
+3. En **Drivers**, consulta las versiones instaladas y las ofertas de Windows Update. Para Lenovo, el análisis consulta también el catálogo oficial del modelo/SKU. Puedes filtrar sus paquetes y abrir su ficha o descarga oficial. La fecha de un driver no demuestra que esté desactualizado.
 4. Las guías abren Inicio, Almacenamiento, Energía, Windows Update o soporte oficial. Los cambios se eligen en esas herramientas. El historial registra la apertura de la guía, no supone que aplicaste un ajuste.
-5. En **Gaming**, importa un CSV de PresentMon o selecciona su ejecutable de consola oficial para capturar un proceso. Compara sesiones del mismo juego y escenario.
+5. En **Gaming**, importa un CSV de PresentMon o selecciona su ejecutable de consola oficial y el proceso de la lista para capturarlo. También puedes escribir el PID manualmente. Compara sesiones del mismo juego y escenario.
 6. Usa **Historial** para volver a un diagnóstico guardado y exporta un informe JSON o Markdown.
 
 ## Gaming y PresentMon
@@ -49,11 +49,23 @@ El análisis usa WMI y sensores opcionales de [LibreHardwareMonitor](https://git
 
 La búsqueda de drivers respeta las fuentes y políticas de Windows Update. No encontrar ofertas no descarta otra versión compatible del fabricante. La instalación se realiza mediante Windows Update o el proveedor oficial.
 
+## Identificación y soporte oficial del equipo
+
+La clasificación usa el tipo de sistema y su chassis. Una batería de UPS conectada a un escritorio no lo convierte en portátil. Si Windows no aporta evidencia suficiente, se muestra tipo desconocido.
+
+El catálogo Lenovo se resuelve con modelo o SKU y se verifica contra el nombre del producto oficial. Sus paquetes son los publicados para ese modelo: pueden incluir variantes de componentes o paquetes opcionales y no equivalen a actualizaciones confirmadas para cada dispositivo instalado. Revisa el sistema operativo y la ficha antes de instalar.
+
+**Buscar por serie** es una acción explícita. Solo entonces se lee la serie de BIOS y se consulta al fabricante oficial. La interfaz la enmascara; no se guarda en el diagnóstico, historial ni exportaciones. La consulta normal por modelo no envía la serie. Las series vacías o genéricas de BIOS se descartan.
+
+Otros fabricantes ofrecen su portal oficial cuando no hay un servicio de catálogo verificado. No se presenta una búsqueda genérica como resultado específico del modelo. Los drivers genéricos de Microsoft dirigen al Catálogo Microsoft Update; soporte Surface corresponde solo a un equipo Surface identificado.
+
 ## Datos locales
 
-Los diagnósticos y el registro de guías se guardan en `%LocalAppData%\FlyyOptimizer\reports`. No se suben a un servicio. Los informes contienen hardware, nombres de procesos y aplicaciones de inicio: revísalos antes de compartirlos. Las rutas de perfil en comandos de inicio se anonimizan. No se consultan números de serie, hostname ni nombre de usuario.
+Los diagnósticos y el registro de guías se guardan en `%LocalAppData%\FlyyOptimizer\reports`. No se suben a un servicio. Los informes contienen hardware, modelo/SKU, nombres de procesos y aplicaciones de inicio: revísalos antes de compartirlos. Las rutas de perfil en comandos de inicio se anonimizan. No se consultan hostname ni nombre de usuario. La serie se usa únicamente en la búsqueda explícita de soporte descrita arriba.
 
 Un informe dañado no oculta los otros informes válidos. La app conserva un registro de guías dañado y muestra el error en lugar de sobrescribirlo silenciosamente.
+
+Varias instancias pueden escribir y refrescar las guías compartidas sin sobrescribir los registros de otra instancia.
 
 ## Verificación desde código
 

@@ -57,7 +57,7 @@ public sealed class ReportStore
             throw new ArgumentException("El informe debe pertenecer al historial de esta aplicación.", nameof(path));
         try
         {
-            var text = await File.ReadAllTextAsync(fullPath);
+            var text = await ReadSharedTextAsync(fullPath);
             using var document = JsonDocument.Parse(text);
             if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("Id", out _)
                 || !document.RootElement.TryGetProperty("CapturedAt", out _))
@@ -83,7 +83,9 @@ public sealed class ReportStore
         await actionGate.WaitAsync();
         try
         {
-            var actions = (await GetActionsAsync()).ToList();
+            Directory.CreateDirectory(directory);
+            await using var lease = await AcquireActionLeaseAsync();
+            var actions = (await ReadActionsWithoutLeaseAsync()).ToList();
             actions.Add(record);
             await WriteAtomicallyAsync(Path.Combine(directory, "actions.json"), JsonSerializer.Serialize(actions, JsonOptions));
         }
@@ -94,9 +96,17 @@ public sealed class ReportStore
     {
         var path = Path.Combine(directory, "actions.json");
         if (!File.Exists(path)) return [];
+        await using var lease = await AcquireActionLeaseAsync();
+        return await ReadActionsWithoutLeaseAsync();
+    }
+
+    private async Task<IReadOnlyList<ActionRecord>> ReadActionsWithoutLeaseAsync()
+    {
+        var path = Path.Combine(directory, "actions.json");
+        if (!File.Exists(path)) return [];
         try
         {
-            var records = JsonSerializer.Deserialize<List<ActionRecord>>(await File.ReadAllTextAsync(path), JsonOptions);
+            var records = JsonSerializer.Deserialize<List<ActionRecord>>(await ReadSharedTextAsync(path), JsonOptions);
             if (records is null || records.Any(record => record is null))
                 throw new InvalidDataException("El registro de guías está incompleto. Se conservó el archivo existente.");
             return records;
@@ -105,6 +115,30 @@ public sealed class ReportStore
         {
             throw new InvalidDataException("El registro de guías está dañado. Se conservó el archivo existente.", ex);
         }
+    }
+
+    private async Task<FileStream> AcquireActionLeaseAsync()
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        var path = Path.Combine(directory, "actions.lock");
+        while (true)
+        {
+            try { return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            catch (IOException ex) when (ex.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021))
+            {
+                if (DateTime.UtcNow >= deadline)
+                    throw new IOException("Otra instancia está escribiendo el historial. Vuelve a intentar guardar la guía.", ex);
+                await Task.Delay(25);
+            }
+        }
+    }
+
+    private static async Task<string> ReadSharedTextAsync(string path)
+    {
+        // Readers retain a stable file handle while atomic replacement publishes the next version.
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync();
     }
 
     private async Task WriteAtomicallyAsync(string path, string text)

@@ -19,6 +19,10 @@ public sealed record FindingRow(Finding Finding)
 
 public sealed record HardwareRow(string Name, string Value);
 public sealed record GameMetric(string Name, string Baseline, string Comparison, string Difference);
+public sealed record ProcessChoice(string Name, int Id, double MemoryMb)
+{
+    public string Label => $"{Name} · PID {Id} · {Labels.Number(MemoryMb, " MB", 0)}";
+}
 public sealed record SessionDisplay(GamingSession Session)
 {
     public string Name => string.IsNullOrWhiteSpace(Session.ProcessName) ? System.IO.Path.GetFileName(Session.SourceFile) : Session.ProcessName;

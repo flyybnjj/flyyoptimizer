@@ -12,6 +12,10 @@ public static class ReportFormatter
         text.AppendLine($"Observación: {snapshot.CapturedAt:yyyy-MM-dd HH:mm:ss zzz}.").AppendLine();
         text.AppendLine("Los datos corresponden a esta observación. Las recomendaciones no garantizan una mejora y las guías requieren elegir los cambios en Windows.").AppendLine();
         text.AppendLine("## Equipo").AppendLine();
+        text.AppendLine($"- Tipo de equipo: {snapshot.Machine.DeviceKind switch { DeviceKind.Laptop => "Portátil", DeviceKind.Desktop => "Escritorio", _ => "No identificado" }}");
+        text.AppendLine($"- Fabricante y modelo: {Cell(snapshot.Machine.Manufacturer)} {Cell(snapshot.Machine.Model)}");
+        text.AppendLine($"- Nombre comercial: {Cell(snapshot.Machine.ProductName)}");
+        text.AppendLine($"- SKU: {Cell(snapshot.Machine.SystemSku)}");
         text.AppendLine($"- CPU: {Cell(snapshot.Machine.CpuName)}");
         text.AppendLine($"- GPU: {Cell(snapshot.Machine.GpuName)}");
         text.AppendLine($"- Sistema: {Cell(snapshot.Machine.OsName)} {Cell(snapshot.Machine.OsVersion)}");

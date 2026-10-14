@@ -10,5 +10,6 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1"><PrivateAssets>all</PrivateAssets></PackageReference>
     <ProjectReference Include="../../src/FlyyOptimizer.Core/FlyyOptimizer.Core.csproj" />
     <Compile Include="../../src/FlyyOptimizer.App/OperationLifetime.cs" Link="OperationLifetime.cs" />
+    <Compile Include="../../src/FlyyOptimizer.App/CaptureInputValidation.cs" Link="CaptureInputValidation.cs" />
   </ItemGroup>
 </Project>

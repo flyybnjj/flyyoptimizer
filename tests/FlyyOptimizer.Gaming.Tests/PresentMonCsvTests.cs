@@ -169,5 +169,30 @@ public sealed class PresentMonCsvTests : IDisposable
         return path;
     }
 
+    [Fact]
+    public void PreCancelledImportDoesNotReadTheCsv()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() => PresentMonCsv.Parse("nonexistent.csv", cancellation.Token));
+    }
+
+    [Fact]
+    public async Task CancellationInterruptsAnImportAlreadyReadingRows()
+    {
+        var path = Path.Combine(directory, "cancel-large.csv");
+        using (var writer = new StreamWriter(path))
+        {
+            writer.WriteLine("Application,ProcessID,FrameTime");
+            for (var i = 0; i < 500_000; i++) writer.WriteLine("game.exe,32,16.6667");
+        }
+        using var cancellation = new CancellationTokenSource();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var importing = Task.Run(() => { started.SetResult(); return PresentMonCsv.Parse(path, cancellation.Token); });
+        await started.Task;
+        cancellation.CancelAfter(TimeSpan.FromMilliseconds(10));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => importing);
+    }
+
     public void Dispose() => Directory.Delete(directory, recursive: true);
 }

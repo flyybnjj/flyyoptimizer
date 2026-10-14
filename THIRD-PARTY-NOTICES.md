@@ -45,6 +45,8 @@ No se modificó el código de estas dependencias. Los metadatos `.nuspec` inclui
 
 UniGetUI (MIT) y Winutil (MIT) se consultaron como referencias. No se incluyó su código ni se ejecutaron sus scripts. Optimizer (GPL-3.0) fue una referencia histórica; no se incluyó su código.
 
+Lenovo Legion Toolkit (GPL-3.0) se consultó como referencia de identificación y acceso al servicio oficial Lenovo. La implementación de FlyyOptimizer se escribió independientemente; no se copió ni incluyó código o binarios de Toolkit. Las respuestas del catálogo y las descargas proceden de Lenovo; la app abre los enlaces oficiales y no distribuye los instaladores.
+
 ## Herramientas de desarrollo
 
 xUnit, xunit.runner.visualstudio y Microsoft.NET.Test.Sdk se usan para pruebas y no se incluyen en la aplicación publicada. Sus avisos están disponibles en los paquetes NuGet y repositorios oficiales.

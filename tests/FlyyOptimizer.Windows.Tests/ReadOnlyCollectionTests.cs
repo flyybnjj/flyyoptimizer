@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using FlyyOptimizer.Core;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -13,7 +14,13 @@ public sealed class ReadOnlyCollectionTests(ITestOutputHelper output)
     {
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(1));
         var elapsed = Stopwatch.StartNew();
-        var snapshot = await new WindowsCollector().CollectAsync(cancellationToken: cancellation.Token);
+        var progress = new List<ScanProgress>();
+        var snapshot = await new WindowsCollector().CollectAsync(cancellationToken: cancellation.Token, detailedProgress: new ImmediateProgress<ScanProgress>(progress.Add));
+        Assert.Equal(Enumerable.Range(1, 14), progress.Select(step => step.CompletedSteps));
+        Assert.All(progress, step => Assert.Equal(14, step.TotalSteps));
+        Assert.All(progress.Take(4), step => Assert.Null(step.Sample));
+        Assert.Equal(snapshot.Machine.DeviceKind == FlyyOptimizer.Core.DeviceKind.Laptop, snapshot.Machine.IsLaptop);
+        Assert.All(snapshot.Samples.Select((sample, index) => (sample, index)), pair => Assert.Same(pair.sample, progress[pair.index + 4].Sample));
         Assert.Equal(10, snapshot.Samples.Count);
         Assert.True(elapsed.Elapsed >= TimeSpan.FromSeconds(9));
         Assert.Equal(10, snapshot.Samples.Select(s => s.At).Distinct().Count());
@@ -31,7 +38,13 @@ public sealed class ReadOnlyCollectionTests(ITestOutputHelper output)
             Startup = snapshot.Startup.Count, Processes = snapshot.Processes.Count, Networks = snapshot.Networks.Count,
             CpuReadings = snapshot.Samples.Count(s => s.CpuPercent is not null), MemoryReadings = snapshot.Samples.Count(s => s.MemoryPercent is not null),
             CpuTemperatureReadings = snapshot.Samples.Count(s => s.CpuTemperature is not null), GpuTemperatureReadings = snapshot.Samples.Count(s => s.GpuTemperature is not null),
-            snapshot.Notes
+            snapshot.Machine.Manufacturer, snapshot.Machine.Model, snapshot.Machine.ProductName, snapshot.Machine.SystemSku,
+            snapshot.Machine.DeviceKind, snapshot.Machine.DeviceTypeEvidence, snapshot.Notes
         }));
+    }
+
+    private sealed class ImmediateProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 }

@@ -26,12 +26,13 @@ public static class WindowsActions
         ["Acer"] = "https://www.acer.com/support/drivers-and-manuals",
         ["MSI"] = "https://www.msi.com/support",
         ["Micro-Star International Co., Ltd."] = "https://www.msi.com/support",
-        ["Microsoft"] = "https://support.microsoft.com/surface",
-        ["Microsoft Corporation"] = "https://support.microsoft.com/surface"
+        ["Microsoft"] = "https://www.catalog.update.microsoft.com/",
+        ["Microsoft Corporation"] = "https://www.catalog.update.microsoft.com/"
     };
 
     private static readonly HashSet<string> ApprovedHosts = ManufacturerSites.Values
-        .Select(value => new Uri(value).Host).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        .Select(value => new Uri(value).Host).Concat(["download.lenovo.com", "support.lenovo.com", "support.microsoft.com"])
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     public static string? ManufacturerUrl(string manufacturer) =>
         ManufacturerSites.GetValueOrDefault(manufacturer?.Trim() ?? "");

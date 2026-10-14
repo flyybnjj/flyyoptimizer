@@ -63,6 +63,40 @@ public sealed class ReportTests : IDisposable
     }
 
     [Fact]
+    public async Task ConcurrentInstancesDoNotOverwriteEachOthersGuideHistory()
+    {
+        var first = new ReportStore(directory);
+        var second = new ReportStore(directory);
+        await Task.WhenAll(Enumerable.Range(0, 40).Select(i => (i % 2 == 0 ? first : second)
+            .RecordActionAsync(new(DateTimeOffset.Now, $"action-{i}", "Guide", "Guía abierta"))));
+        var records = await first.GetActionsAsync();
+        Assert.Equal(40, records.Count);
+        Assert.Equal(40, records.Select(record => record.FindingId).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task RefreshingHistoryWhileOtherInstancesWritePreservesEveryRecord()
+    {
+        var first = new ReportStore(directory);
+        var second = new ReportStore(directory);
+        var reader = new ReportStore(directory);
+        await first.RecordActionAsync(new(DateTimeOffset.Now, "seed", "Guide", "Guía abierta"));
+        using var stopReading = new CancellationTokenSource();
+        var refreshing = Task.Run(async () =>
+        {
+            while (!stopReading.IsCancellationRequested)
+                await reader.GetActionsAsync();
+        });
+        try
+        {
+            await Task.WhenAll(Enumerable.Range(0, 60).Select(i => (i % 2 == 0 ? first : second)
+                .RecordActionAsync(new(DateTimeOffset.Now, $"action-{i}", "Guide", "Guía abierta"))));
+        }
+        finally { stopReading.Cancel(); await refreshing; }
+        Assert.Equal(61, (await reader.GetActionsAsync()).Count);
+    }
+
+    [Fact]
     public async Task BrokenActionLogIsPreservedInsteadOfSilentlyOverwritten()
     {
         Directory.CreateDirectory(directory);
@@ -120,6 +154,17 @@ public sealed class ReportTests : IDisposable
         var snapshot = new SystemSnapshot { Drivers = [new() { DeviceName = "GPU|name\nextra", Version = "1.0" }] };
         var report = ReportFormatter.ToMarkdown(snapshot, []);
         Assert.Contains("GPU\\|name extra", report);
+    }
+
+    [Fact]
+    public void ExportExplainsDetectedDeviceAndOfficialModelIdentity()
+    {
+        var snapshot = new SystemSnapshot { Machine = new() { DeviceKind = DeviceKind.Laptop, Manufacturer = "LENOVO", Model = "83GS", ProductName = "LOQ 15IAX9", SystemSku = "LENOVO_MT_83GS" } };
+        var report = ReportFormatter.ToMarkdown(snapshot, []);
+        Assert.Contains("Portátil", report);
+        Assert.Contains("LOQ 15IAX9", report);
+        Assert.Contains("83GS", report);
+        Assert.Contains("LENOVO_MT_83GS", report);
     }
 
     [Fact]
