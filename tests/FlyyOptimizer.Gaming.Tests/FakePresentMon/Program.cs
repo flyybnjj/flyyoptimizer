@@ -1,4 +1,4 @@
-// Test-only executable: checks the real child-process arguments and writes a CSV.
+
 using System.Globalization;
 
 if (args.Length == 3 && args[0] == "--terminate_existing_session" && args[1] == "--session_name" && args[2].StartsWith("FlyyOptimizer-", StringComparison.Ordinal))

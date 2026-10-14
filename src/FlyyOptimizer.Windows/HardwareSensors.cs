@@ -13,8 +13,8 @@ internal sealed class HardwareSensors : IDisposable
     private readonly HashSet<string> _failed = [];
     internal readonly record struct Readings(double? CpuTemperature, double? GpuTemperature, double? GpuPercent);
 
-    // LHM 0.9.6 CPU/motherboard providers load PawnIO bytecode. Normal scans never enable them.
-    // AMD/NVIDIA sensors use their already installed display-driver APIs; default settings leave fan controls Undefined.
+
+
     internal static Computer CreateReadOnlyComputer() => new() { IsCpuEnabled = false, IsGpuEnabled = true };
 
     internal HardwareSensors(List<string> notes, bool isAdministrator)
@@ -106,7 +106,7 @@ internal sealed class HardwareSensors : IDisposable
                     if (isCpu) cpu.Add(value);
                     if (isGpu) gpu.Add(value);
                 }
-                // Report core utilization, rather than VRAM or bus load.
+
                 if (isGpu && sensor.SensorType == SensorType.Load && (sensor.Name.Contains("Core", StringComparison.OrdinalIgnoreCase) || sensor.Name.Equals("GPU", StringComparison.OrdinalIgnoreCase)) &&
                     AcquisitionNormalization.Percent(value) is { } load) gpuLoads.Add(load);
             }

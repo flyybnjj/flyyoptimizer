@@ -59,10 +59,10 @@ internal sealed class NativeTemporaryCleanup
                             rows.Add(new(id, Path.GetRelativePath(root, path), file.Length));
                             total = checked(total + file.Length);
                         }
-                        catch (Exception ex) when (IsFileFailure(ex)) { /* Busy or unavailable entries are not offered. */ }
+                        catch (Exception ex) when (IsFileFailure(ex)) {  }
                     }
                 }
-                catch (Exception ex) when (IsFileFailure(ex)) { /* An inaccessible directory does not invalidate the other candidates. */ }
+                catch (Exception ex) when (IsFileFailure(ex)) {  }
             }
             preview = next;
             return new TemporaryCleanupPreview(rows, total, truncated, rows.Count == 0
@@ -108,8 +108,8 @@ internal sealed class NativeTemporaryCleanup
         try
         {
             if (!WithinRoot(file.Path) || !SafeAncestors(file.Path, includeFile: true)) return false;
-            // A delete-capable handle with no write/delete sharing makes validation and deletion refer to one stable file.
-            // OPEN_REPARSE_POINT prevents following a file symlink introduced after the preview.
+
+
             using var handle = CreateFile(file.Path, 0x00010000 | 0x80000000, 1, IntPtr.Zero, 3, 0x00200000, IntPtr.Zero);
             if (handle.IsInvalid || !GetFileInformationByHandle(handle, out var info)) return false;
             if ((info.Attributes & (uint)(FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0 || info.NumberOfLinks != 1) return false;

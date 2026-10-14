@@ -62,7 +62,7 @@ internal static partial class FortniteSettingsEditor
         if (bytes.AsSpan().StartsWith(new byte[] { 0xef, 0xbb, 0xbf })) return (new UTF8Encoding(false, true), 3);
         var utf8 = new UTF8Encoding(false, true);
         try { _ = utf8.GetString(bytes); return (utf8, 0); }
-        catch (DecoderFallbackException) { return (Encoding.Latin1, 0); } // Existing non-UTF8 bytes round-trip unchanged.
+        catch (DecoderFallbackException) { return (Encoding.Latin1, 0); }
     }
 
     [GeneratedRegex(@"[^\r\n]+", RegexOptions.CultureInvariant)]

@@ -141,7 +141,7 @@ public partial class App : Application
                     await WriteJsonAsync(Path.Combine(Path.GetFullPath(e.Args[1]), "status.json"), new { Success = false, Error = ex.Message });
                 }
             }
-            catch { /* The exit code remains authoritative if the diagnostics folder is unavailable. */ }
+            catch {  }
             if (e.Args.Length == 0) MessageBox.Show($"FlyyOptimizer no pudo iniciar. {ex.Message}", "FlyyOptimizer", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(e.Args.Length > 0 && ex is ArgumentException ? 2 : 1);
         }
@@ -156,8 +156,8 @@ public partial class App : Application
     {
         await window.Dispatcher.InvokeAsync(window.UpdateLayout, DispatcherPriority.Loaded);
         await Task.Delay(Motion.SettleMilliseconds);
-        // A dispatcher idle callback alone can precede native WM_SIZE delivery on DPI-scaled desktops.
-        // Await a presentation frame so the final size and selected page have reached layout.
+
+
         var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler handler = (_, _) => rendered.TrySetResult();
         CompositionTarget.Rendering += handler;

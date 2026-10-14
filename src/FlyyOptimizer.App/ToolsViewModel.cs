@@ -4,7 +4,7 @@ using FlyyOptimizer.Windows;
 
 namespace FlyyOptimizer.App;
 
-/// <summary>Concrete changes use the main operation lifetime, including cancellation and closing.</summary>
+
 public sealed class ToolsViewModel : ObservableObject
 {
     private readonly INativeOptimizationService service;
@@ -121,8 +121,8 @@ public sealed class ToolsViewModel : ObservableObject
         }
         finally
         {
-            // A partially applied change may have a durable backup even when its operation is cancelled.
-            // Keep the lifetime active until the read refresh finishes so close cannot hide that backup.
+
+
             try { await RefreshStateAsync(CancellationToken.None); }
             catch (Exception ex)
             {

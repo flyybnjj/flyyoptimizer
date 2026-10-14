@@ -34,7 +34,7 @@ try {
 }
 finally { $taskArchive.Dispose() }
 
-# Execute the extracted release in a different path, with spaces and no SDK lookup.
+
 $taskEvidence = Join-Path $taskRoot ('artifacts\portable verification ' + [Guid]::NewGuid().ToString('N'))
 [System.IO.Directory]::CreateDirectory($taskEvidence) | Out-Null
 [System.IO.Compression.ZipFile]::ExtractToDirectory($taskZip, $taskEvidence)

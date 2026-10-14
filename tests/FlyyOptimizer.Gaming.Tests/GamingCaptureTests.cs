@@ -13,7 +13,7 @@ public sealed class GamingCaptureTests : IDisposable
     public GamingCaptureTests()
     {
         Directory.CreateDirectory(directory);
-        // Keep the test helper on this session's bundled runtime; no machine installation.
+
         var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         Environment.SetEnvironmentVariable("DOTNET_ROOT", Directory.GetParent(runtimeDirectory)!.Parent!.Parent!.FullName);
         Environment.SetEnvironmentVariable("FLYY_TEST_SESSION_DIRECTORY", directory);
@@ -167,7 +167,7 @@ public sealed class GamingCaptureTests : IDisposable
             Assert.Throws<ArgumentException>(() => Process.GetProcessById(collectorPid));
             Assert.False(File.Exists(output));
             Assert.Empty(Directory.GetFiles(directory, "*.session"));
-            Assert.Single(Directory.GetFiles(directory)); // Only the helper's PID observation.
+            Assert.Single(Directory.GetFiles(directory));
         }
         finally
         {

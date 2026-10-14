@@ -1,7 +1,7 @@
 namespace FlyyOptimizer.Windows;
 
-// Independently implemented preferences from the pinned WinUtil/Optimizer research.
-// Only explicitly allowlisted HKCU values; no services, scripts, security or update settings.
+
+
 internal static class PerformanceTweaks
 {
     internal sealed record Value(string Key, string Name, int Target);

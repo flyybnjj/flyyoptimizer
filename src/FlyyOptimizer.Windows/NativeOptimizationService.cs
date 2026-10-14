@@ -230,7 +230,7 @@ public sealed class NativeOptimizationService : INativeOptimizationService
             {
                 entry.State = "Partial";
                 try { await journal.WriteAsync(entries, CancellationToken.None); }
-                catch (Exception ex) when (IsExpectedFailure(ex)) { /* The original Pending backup remains durable. */ }
+                catch (Exception ex) when (IsExpectedFailure(ex)) {  }
                 throw;
             }
             return new OptimizationOutcome(true, "Preferencia aplicada y comprobada. Puedes deshacerla desde los cambios guardados.", true);

@@ -8,7 +8,7 @@ namespace FlyyOptimizer.Gaming;
 
 public sealed class GamingCapture
 {
-    /// <summary>Uses the bundled official standalone PresentMon console executable.</summary>
+
     public async Task<GamingSession> CaptureAsync(string executable, int processId, int durationSeconds, string outputPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -29,8 +29,8 @@ public sealed class GamingCapture
         var outputDirectory = Path.GetDirectoryName(destination)!;
         if (!Directory.Exists(outputDirectory)) throw new DirectoryNotFoundException("La carpeta de salida no existe.");
 
-        // PresentMon writes to its own random staging name. Move refuses overwrite even
-        // if another program creates the chosen destination while this capture runs.
+
+
         var temporaryCsv = Path.Combine(outputDirectory, ".FlyyOptimizer-" + Guid.NewGuid().ToString("N") + ".csv");
         var sessionName = "FlyyOptimizer-" + Guid.NewGuid().ToString("N");
         var start = new ProcessStartInfo
@@ -63,7 +63,7 @@ public sealed class GamingCapture
             }
             if (!started) throw new InvalidOperationException("No se pudo iniciar PresentMon.");
 
-            // Drain both pipes while retaining bounded diagnostic text.
+
             var stdout = DrainAsync(collector.StandardOutput);
             var stderr = DrainAsync(collector.StandardError);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(durationSeconds + 30));
@@ -103,8 +103,8 @@ public sealed class GamingCapture
             finally
             {
                 try { File.Delete(temporaryCsv); }
-                catch (IOException) { /* Preserve the original error if Windows still holds the CSV. */ }
-                catch (UnauthorizedAccessException) { /* A file that cannot be cleaned is left untouched. */ }
+                catch (IOException) {  }
+                catch (UnauthorizedAccessException) {  }
             }
         }
     }
@@ -132,13 +132,13 @@ public sealed class GamingCapture
             await collector.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
             return true;
         }
-        catch (InvalidOperationException) { /* The collector exited between the checks. */ }
+        catch (InvalidOperationException) {  }
         catch (Win32Exception error) { throw new InvalidOperationException("No se pudo detener el colector de PresentMon iniciado por FlyyOptimizer.", error); }
         return false;
     }
 
-    // PresentMon documents that forced termination can leave its ETW session open.
-    // Its official cleanup mode addresses only our randomly named session.
+
+
     private static async Task StopOwnTraceSessionAsync(string executable, string sessionName)
     {
         var start = new ProcessStartInfo

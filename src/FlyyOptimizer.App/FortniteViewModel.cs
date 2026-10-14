@@ -4,7 +4,7 @@ using FlyyOptimizer.Windows;
 
 namespace FlyyOptimizer.App;
 
-/// <summary>The profile shows a preview before applying selected, individually reported changes.</summary>
+
 public sealed class FortniteViewModel : ObservableObject
 {
     private readonly IFortniteProfileService service;

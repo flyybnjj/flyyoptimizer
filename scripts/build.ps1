@@ -27,7 +27,7 @@ try {
         if ($taskItems.Count -ne 2 -or -not (Test-Path -LiteralPath (Join-Path $taskStaging 'FlyyOptimizer.exe') -PathType Leaf) -or -not (Test-Path -LiteralPath (Join-Path $taskStaging 'Archivos') -PathType Container)) {
             throw "La publicación no produjo la estructura esperada. Revisa $taskStaging."
         }
-        # Only replace our own build output, after a fresh publish has succeeded.
+
         $taskOutput = [System.IO.Path]::GetFullPath($taskOutput)
         if ((Split-Path -Parent $taskOutput) -ne $taskArtifacts -or (Split-Path -Leaf $taskOutput) -ne 'FlyyOptimizer-win-x64') { throw 'La salida está fuera del directorio de artifacts esperado.' }
         if (Test-Path -LiteralPath $taskOutput) {

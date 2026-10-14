@@ -1,6 +1,6 @@
 namespace FlyyOptimizer.App;
 
-/// <summary>Owns an operation until its asynchronous cleanup has completed, including after cancellation.</summary>
+
 public sealed class OperationLifetime
 {
     private readonly object gate = new();
@@ -43,7 +43,7 @@ public sealed class OperationLifetime
         CancellationTokenSource? source;
         lock (gate) source = cancellation;
         try { source?.Cancel(); }
-        catch (ObjectDisposedException) { /* The operation finished between lookup and cancellation. */ }
+        catch (ObjectDisposedException) {  }
     }
 
     public async Task StopAsync()
@@ -51,7 +51,7 @@ public sealed class OperationLifetime
         Task active;
         lock (gate) { stopping = true; active = completion; }
         Cancel();
-        // Cancellation requests shutdown; completion proves child/process cleanup finished.
+
         await active;
     }
 }

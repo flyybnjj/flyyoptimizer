@@ -4,6 +4,12 @@
 
 Aplicación de escritorio en español para **Windows 11 x64**, desarrollada en **C# y WPF sobre .NET 10**. La distribución portable incluye el runtime: los usuarios no necesitan instalar .NET, Optimizer ni WinUtil por separado.
 
+## Descargar
+
+**[Descargar FlyyOptimizer 1.0 portable para Windows x64](https://github.com/flyybnjj/flyyoptimizer/releases/download/v1.0/FlyyOptimizer-win-x64.zip)**
+
+Extrae todo el ZIP y abre **FlyyOptimizer.exe**. Conserva la carpeta **Archivos** junto al ejecutable. También puedes consultar [las releases](https://github.com/flyybnjj/flyyoptimizer/releases).
+
 ## Funciones
 
 | Área | Qué ofrece |

@@ -44,7 +44,7 @@ public sealed class ReportStore
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             {
-                // A damaged or unavailable report must not hide the other reports.
+
             }
         }
         return reports.OrderByDescending(r => r.CapturedAt).ToArray();
@@ -135,7 +135,7 @@ public sealed class ReportStore
 
     private static async Task<string> ReadSharedTextAsync(string path)
     {
-        // Readers retain a stable file handle while atomic replacement publishes the next version.
+
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var reader = new StreamReader(stream);
         return await reader.ReadToEndAsync();

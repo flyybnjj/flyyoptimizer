@@ -281,7 +281,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private static IReadOnlyList<double?> Trace(List<double> values)
     {
         if (values.Count <= 180) return values.Select(x => (double?)x).ToList();
-        // Draw real evenly selected frames, with no averaging or invented interpolation.
+
         return Enumerable.Range(0, 180).Select(i => (double?)values[(int)((long)i * (values.Count - 1) / 179)]).ToList();
     }
 
@@ -343,7 +343,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (isCurrent) SetCaptureProcesses(result.Processes);
         else
         {
-            // PIDs can be reused. Archived inventory is evidence, never a live capture candidate.
+
             SetCaptureProcesses([]);
             ProcessId = "";
         }

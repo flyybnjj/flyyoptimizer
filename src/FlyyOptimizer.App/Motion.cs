@@ -5,7 +5,7 @@ using System.Windows.Media.Animation;
 
 namespace FlyyOptimizer.App;
 
-/// <summary>Small, interruptible native feedback. Measurements and layout are never animated.</summary>
+
 public static class Motion
 {
     public const int SettleMilliseconds = 240;
@@ -165,7 +165,7 @@ public static class Motion
         clocks[property] = clock;
         clock.Completed += (_, _) =>
         {
-            // A completed clock can be queued while a new interaction replaces it.
+
             if (!clocks.TryGetValue(property, out var current) || !ReferenceEquals(current, clock)) return;
             RemoveClock(target, property);
             target.SetCurrentValue(property, to);

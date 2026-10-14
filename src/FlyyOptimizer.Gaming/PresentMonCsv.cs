@@ -10,7 +10,7 @@ public static class PresentMonCsv
     private const long MaximumFileBytes = 64L * 1024 * 1024;
     private const int MaximumFrames = 1_000_000;
 
-    /// <summary>Reads one process and swap chain. Percentiles use nearest rank.</summary>
+
     public static GamingSession Parse(string path, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -158,7 +158,7 @@ public static class PresentMonCsv
         return double.TryParse(field, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && double.IsFinite(value) && value > 0;
     }
 
-    // An incremental mean avoids overflowing a sum of individually finite times.
+
     private static double Mean(IReadOnlyList<double> values, int start)
     {
         var mean = 0d;

@@ -3,7 +3,7 @@ using FlyyOptimizer.Core;
 
 namespace FlyyOptimizer.Windows;
 
-// Downloads offered drivers into the Windows Update cache. Never accepts licenses or installs.
+
 public sealed class DriverDownloadService
 {
     private static readonly SemaphoreSlim ActiveDownload = new(1, 1);

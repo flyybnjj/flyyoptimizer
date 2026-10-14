@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace FlyyOptimizer.Windows;
 
-/// <summary>Selected, local, reversible steps; no remote script or external optimizer is invoked.</summary>
+
 public sealed class FortniteProfileService : IFortniteProfileService
 {
     public const string HighPerformanceScheme = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";

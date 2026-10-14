@@ -2,7 +2,7 @@ using System.IO;
 
 namespace FlyyOptimizer.App;
 
-/// <summary>Shared by the WPF form and deterministic regression checks; never starts a capture.</summary>
+
 public static class CaptureInputValidation
 {
     public static string Validate(string processId, string seconds, string executable, Func<string, bool> fileExists, out int pid, out int duration)

@@ -5,7 +5,7 @@ using System.IO;
 
 namespace FlyyOptimizer.App;
 
-/// <summary>Native boundaries can be replaced by fixtures; smoke tests never change Windows settings.</summary>
+
 internal sealed class ViewModelServices
 {
     public Func<IProgress<string>?, CancellationToken, IProgress<ScanProgress>?, Task<SystemSnapshot>> Collect { get; init; } =

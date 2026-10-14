@@ -42,7 +42,7 @@ public partial class MainWindow : Window
         IsEnabled = false;
         await model.PrepareToCloseAsync();
         readyToClose = true;
-        // Even an idle close must run after the current Closing event has returned.
+
         _ = Dispatcher.BeginInvoke(new Action(Close));
     }
 }

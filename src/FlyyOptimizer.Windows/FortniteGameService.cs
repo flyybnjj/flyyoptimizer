@@ -263,7 +263,7 @@ public sealed class FortniteGameService : IFortniteGameService
 
     private static bool IsPrefixWrite(byte[] current, byte[] before, byte[] target)
     {
-        // Write begins at offset zero, then truncates only after the full target was written.
+
         if (current.Length < before.Length || current.Length > Math.Max(before.Length, target.Length)) return false;
         var prefix = 0;
         while (prefix < Math.Min(current.Length, target.Length) && current[prefix] == target[prefix]) prefix++;

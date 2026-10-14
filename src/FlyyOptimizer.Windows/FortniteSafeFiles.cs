@@ -6,8 +6,8 @@ using System.Management;
 
 namespace FlyyOptimizer.Windows;
 
-// Keep every ancestor and the existing file open while validating and writing it.
-// An exclusive read/write handle prevents a path or writer race; durable backups cover interruption.
+
+
 internal static class FortniteSafeFiles
 {
     internal const int MaximumSettingsBytes = 512 * 1024;
@@ -80,8 +80,8 @@ internal static class FortniteSafeFiles
         catch { stream?.Dispose(); packageDirectories?.Dispose(); directories.Dispose(); throw; }
     }
 
-    // Only the OS-reported current package's exact AppData merge is accepted.
-    // Its physical parent is also checked and held; ordinary redirections remain rejected.
+
+
     internal static bool IsPackageAlias(string logical, string actual, string localData, string? family)
     {
         if (string.IsNullOrWhiteSpace(family) || family.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('.' or '_' or '-'))) return false;
@@ -99,8 +99,8 @@ internal static class FortniteSafeFiles
             var name = new StringBuilder((int)length);
             if (GetCurrentPackageFamilyName(ref length, name) == 0) return name.ToString();
         }
-        // A desktop host may pass its filesystem merge to an unpackaged child.
-        // Use only identities reported by Windows for the actual process ancestry.
+
+
         try
         {
             using var query = new ManagementObjectSearcher("SELECT ProcessId, ParentProcessId FROM Win32_Process");

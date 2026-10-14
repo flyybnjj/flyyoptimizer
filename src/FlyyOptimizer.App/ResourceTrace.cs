@@ -3,7 +3,7 @@ using System.Windows.Media;
 
 namespace FlyyOptimizer.App;
 
-/// <summary>A sampled observation; gaps stay gaps and no synthetic points are added.</summary>
+
 public sealed class ResourceTrace : FrameworkElement
 {
     public static readonly DependencyProperty ValuesProperty = DependencyProperty.Register(nameof(Values), typeof(IReadOnlyList<double?>), typeof(ResourceTrace), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));

@@ -6,3 +6,13 @@ artifacts/
 *.user
 *.suo
 TestResults/
+.env
+.env.*
+!.env.example
+**/secrets.json
+**/credentials.json
+*.pfx
+*.p12
+*.key
+id_rsa
+id_ed25519

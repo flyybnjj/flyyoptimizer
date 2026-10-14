@@ -216,7 +216,7 @@ internal static class CleanupTestLinks
 {
     internal static void CreateJunction(string link, string target)
     {
-        // Junction creation is permitted for the owning user without SeCreateSymbolicLinkPrivilege.
+
         Directory.CreateDirectory(link);
         var substitute = Encoding.Unicode.GetBytes(@"\??\" + Path.GetFullPath(target));
         var print = Encoding.Unicode.GetBytes(Path.GetFullPath(target));

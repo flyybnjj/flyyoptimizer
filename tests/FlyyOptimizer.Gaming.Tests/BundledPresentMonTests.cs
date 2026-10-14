@@ -86,7 +86,7 @@ public sealed class BundledPresentMonTests : IDisposable
         {
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
             var help = (await output) + (await error);
-            // The upstream help branch prints usage and returns false; wmain returns 1.
+
             Assert.Equal(1, process.ExitCode);
             Assert.Contains("PresentMon 2.6.0", help);
             Assert.DoesNotContain("error:", help, StringComparison.OrdinalIgnoreCase);

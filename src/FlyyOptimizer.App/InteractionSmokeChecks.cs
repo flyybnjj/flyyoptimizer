@@ -10,7 +10,7 @@ using System.Windows.Media.Imaging;
 
 namespace FlyyOptimizer.App;
 
-/// <summary>Fixtures verify view-model behavior only. They never install, capture, or open system tools.</summary>
+
 internal static class InteractionSmokeChecks
 {
     public static async Task<IReadOnlyList<string>> RunAsync(string directory, Dispatcher dispatcher)

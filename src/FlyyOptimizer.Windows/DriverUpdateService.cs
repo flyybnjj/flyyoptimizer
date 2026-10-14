@@ -27,10 +27,10 @@ public sealed class DriverUpdateService
         }
         finally
         {
-            // COM cleanup may outlive an aborted request. Keep the source alive until its worker finishes.
+
             _ = worker.ContinueWith(completed =>
             {
-                _ = completed.Exception; // Observe a later cancellation/error after the caller has left.
+                _ = completed.Exception;
                 workerCancellation.Dispose();
             }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
@@ -69,7 +69,7 @@ public sealed class DriverUpdateService
                     var title = ComText(() => ((dynamic)update).Title);
                     var date = ComText(() => ((dynamic)update).DriverVerDate);
                     if (DateTime.TryParse(date, CultureInfo.CurrentCulture, DateTimeStyles.None, out var parsed)) date = parsed.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                    // WUA exposes DriverVerDate, but no structured driver-version property. Do not guess from the title.
+
                     identity = ((dynamic)update).Identity;
                     updates.Add(new DriverUpdateInfo(title, ComText(() => ((dynamic)update).DriverManufacturer), ComText(() => ((dynamic)update).DriverClass), "", date,
                         ComText(() => ((dynamic)identity).UpdateID), (int)((dynamic)identity).RevisionNumber, (bool)((dynamic)update).IsDownloaded, (bool)((dynamic)update).EulaAccepted));
@@ -116,7 +116,7 @@ public sealed class DriverUpdateService
     }
 }
 
-// BeginSearch accepts an automation callback with DISPID 0; it must remain alive until CleanUp returns.
+
 [ComVisible(true)]
 [ClassInterface(ClassInterfaceType.AutoDispatch)]
 public sealed class SearchCompletedCallback
