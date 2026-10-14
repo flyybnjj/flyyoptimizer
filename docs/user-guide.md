@@ -62,6 +62,15 @@ El catálogo Lenovo se resuelve con modelo o SKU y se verifica contra el nombre 
 
 Otros fabricantes ofrecen su portal oficial cuando no hay un servicio de catálogo verificado. No se presenta una búsqueda genérica como resultado específico del modelo. Los drivers genéricos de Microsoft dirigen al Catálogo Microsoft Update; soporte Surface corresponde solo a un equipo Surface identificado.
 
+## Actualizar FlyyOptimizer
+
+Desde 1.1.0, al abrir la app se comprueba la última release estable del repositorio oficial. Si existe una versión superior, el portable se descarga automáticamente. La barra lateral muestra el progreso y, cuando el archivo está verificado, ofrece **Reiniciar y actualizar**. Pulsa el botón cuando hayan terminado el análisis y las demás operaciones. La app no reinicia por su cuenta.
+
+Si la consulta o descarga falla, la app sigue disponible y puedes reintentar desde la barra lateral. Si está al día, muestra que no hay actualizaciones disponibles. Las actualizaciones no necesitan una cuenta de GitHub ni tokens.
+
+Para aplicar el paquete usa una sesión normal, sin permisos de administrador, y una carpeta portable donde tengas permiso de escritura. Los informes y respaldos de ajustes no se reemplazan. Un fallo durante el reemplazo intenta restaurar la instalación anterior y muestra el problema; no hay recuperación automática ante un corte eléctrico durante el reemplazo.
+
+**Si tienes 1.0**, descarga y extrae 1.1.0 manualmente una vez desde [las releases oficiales](https://github.com/flyybnjj/flyyoptimizer/releases). Conserva **FlyyOptimizer.exe** y **Archivos** juntos. Las próximas versiones podrán llegar dentro de la app.
 ## Datos locales
 
 Los diagnósticos y el registro de guías se guardan en `%LocalAppData%\FlyyOptimizer\reports`. No se suben a un servicio. Los informes contienen hardware, modelo/SKU, nombres de procesos y aplicaciones de inicio: revísalos antes de compartirlos. Las rutas de perfil en comandos de inicio se anonimizan. No se consultan hostname ni nombre de usuario. La serie se usa únicamente en la búsqueda explícita de soporte descrita arriba.

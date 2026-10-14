@@ -6,7 +6,7 @@ Aplicación de escritorio en español para **Windows 11 x64**, desarrollada en *
 
 ## Descargar
 
-**[Descargar FlyyOptimizer 1.0.1 portable para Windows x64](https://github.com/flyybnjj/flyyoptimizer/releases/download/v1.0.1/FlyyOptimizer-win-x64.zip)**
+**[Descargar FlyyOptimizer 1.1.0 portable para Windows x64](https://github.com/flyybnjj/flyyoptimizer/releases/download/v1.1.0/FlyyOptimizer-win-x64.zip)**
 
 Extrae todo el ZIP y abre **FlyyOptimizer.exe**. Conserva la carpeta **Archivos** junto al ejecutable. También puedes consultar [las releases](https://github.com/flyybnjj/flyyoptimizer/releases).
 
@@ -21,6 +21,7 @@ Extrae todo el ZIP y abre **FlyyOptimizer.exe**. Conserva la carpeta **Archivos*
 | Gaming | Permite elegir ajustes de Windows y detectar la instalación de Fortnite. |
 | Restauración | Recupera ajustes respaldados cuando su estado actual permite restaurarlos. |
 | Historial | Conserva diagnósticos locales y exporta informes JSON o Markdown. |
+| Actualizaciones de la app | Descarga las nuevas releases de GitHub y pide reiniciar para aplicarlas. |
 
 ## Cómo usarlo
 
@@ -59,7 +60,17 @@ Según la compatibilidad del equipo, FlyyOptimizer permite:
 
 Los cambios se comprueban y guardan su estado anterior. Fortnite debe estar cerrado para editar su configuración; se preservan resolución, límite de FPS, renderizador y controles. No se modifican archivos de anti-cheat. El efecto de cada ajuste depende del hardware y de la carga del equipo; no se promete una cantidad de FPS.
 
-Desde **1.0.1**, los ajustes de registro restringidos por Windows, como las políticas de Edge, se comprueban antes de seleccionarlos. Si faltan permisos, aparecen desactivados en Gaming con su explicación; los demás ajustes disponibles se pueden aplicar. [Corrección y verificación](docs/edge-permissions-fix.md).
+Los ajustes de registro restringidos por Windows, como las políticas de Edge, se comprueban antes de seleccionarlos. Si faltan permisos, aparecen desactivados en Gaming con su explicación; los demás ajustes disponibles se pueden aplicar. [Corrección y verificación](docs/edge-permissions-fix.md).
+
+## Actualización integrada
+
+Desde **1.1.0**, Flyy busca nuevas releases estables de este repositorio al abrirse y descarga automáticamente el portable si existe una versión superior. La barra lateral muestra el progreso y, cuando está listo, **Reiniciar y actualizar**. El reinicio requiere pulsar ese botón y espera a que la aplicación esté libre.
+
+La descarga usa GitHub sin tokens, no envía el diagnóstico del equipo y exige el nombre de archivo, tamaño y SHA-256 publicados. El reemplazo conserva una copia para restaurar si falla; los informes y respaldos locales quedan fuera de la instalación. Si no hay conexión o Windows impide el reemplazo, se informa del problema. La comprobación de integridad depende del repositorio oficial y no equivale a una firma Authenticode.
+
+Las actualizaciones se aplican desde una sesión normal de Flyy. Si la abriste como administrador, ciérrala y ábrela normalmente para reiniciar y actualizar.
+
+**Usuarios de 1.0:** descarga y extrae manualmente 1.1.0 una vez. A partir de esta versión recibirás las siguientes actualizaciones dentro de la app.
 
 ## Compilar desde el código
 
@@ -101,6 +112,7 @@ La limpieza de archivos temporales no se puede deshacer. Los ajustes de energía
 ## Documentación y referencias
 
 - [Guía detallada de uso](docs/user-guide.md)
+- [Actualizaciones integradas y verificación](docs/github-updates.md)
 - [Controles de rendimiento y Fortnite](docs/performance-focused.md)
 - [Herramientas nativas y restauración](docs/native-tools.md)
 - [Interfaz y animaciones](docs/apple-theme-motion.md)

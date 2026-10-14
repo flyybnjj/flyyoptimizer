@@ -29,4 +29,3 @@ Versión **1.1.0**, portable con los mismos dos elementos principales. Los usuar
 ## Verificación
 
 Pruebas con HTTP simulado para versiones, errores, hosts y hashes; ZIPs hostiles y límites; aplicación y restauración en directorios de prueba; estados de UI y cierre mientras hay descarga; ninguna prueba de diagnóstico cambia las preferencias de Windows ni instala sobre la app del usuario. Verificación del portable extraído sin SDK y revisión de código antes de publicar. Prueba real de consulta pública sin token contra GitHub, sin sustituir la instalación en uso.
-

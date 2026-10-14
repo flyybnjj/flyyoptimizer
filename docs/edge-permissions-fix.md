@@ -1,4 +1,4 @@
-# Corrección de permisos de Edge — 1.0.1
+# Corrección de permisos de Edge — incluida en 1.1.0
 
 El reporte mostraba «Reducir procesos de Edge al cerrarlo» y «Windows denegó el acceso». Flyy seleccionaba el ajuste automáticamente aunque no pudiera escribir en `HKCU\Software\Policies\Microsoft\Edge`. El resto del perfil podía completarse, pero el resultado global se mostraba como incompleto.
 

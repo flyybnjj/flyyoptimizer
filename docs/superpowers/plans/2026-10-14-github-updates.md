@@ -55,10 +55,10 @@ public static class PortableAppUpdater
 
 `CreateStartInfo` stages the current self-contained EXE and bounded job, forwarding only `--apply-update <jobPath>` via ArgumentList. It does not start a process. `ApplyFromJobAsync` validates its helper/cache context, re-fetches trusted metadata for that exact tag, waits for the original parent (PID + start time), checks paths/archive, installs with backup/rollback, restarts the app, and reports failure by throwing with a useful message. Testable internal seams cover filesystem application, parent wait and restart without touching the installed app. The helper must not recursively invoke app auto-check UI.
 
-- [ ] Write tests for the five review classes owned by these services and observe failures.
-- [ ] Implement bounded network metadata parsing, semantic comparison, cache and streaming SHA-256 download.
-- [ ] Implement safe ZIP inspection/extraction and install rollback; cover restart failure and blocked files.
-- [ ] Run focused tests, inspect diff and request spec/security review.
+- [x] Write tests for the five review classes owned by these services and observe failures.
+- [x] Implement bounded network metadata parsing, semantic comparison, cache and streaming SHA-256 download.
+- [x] Implement safe ZIP inspection/extraction and install rollback; cover restart failure and blocked files.
+- [x] Run focused tests, inspect diff and request spec/security review.
 
 ## Task 2: WPF integration and release docs
 
@@ -66,18 +66,18 @@ public static class PortableAppUpdater
 
 Use injected `IAppUpdateService` and an injected `Func<PreparedAppUpdate, ProcessStartInfo>` for tests. The app view-model exposes installed version, state/status/progress, retry/check command, ready package and a restart command/event. The root view-model owns cancellation on close and only allows restart when idle. MainWindow starts the prepared helper and then closes through the normal close lifecycle; failure to start leaves the main app open and retryable. The helper branch is handled before normal UI creation. Only normal zero-argument and `--drivers` startup calls the auto-check/download flow.
 
-- [ ] Write fixture interaction cases for no update, auto-download, ready/restart, busy gating, errors, cancellation and closing; never start real helper in these cases.
-- [ ] Implement a compact sidebar update area using existing theme tokens, live status and a visible restart action only when verified ready.
-- [ ] Handle helper CLI early, surface update failure clearly, preserve 105 existing checks.
-- [ ] Set version 1.1.0 and update README download/bootstrap instructions and release notes.
-- [ ] Render actual WPF states and request review.
+- [x] Write fixture interaction cases for no update, auto-download, ready/restart, busy gating, errors, cancellation and closing; never start real helper in these cases.
+- [x] Implement a compact sidebar update area using existing theme tokens, live status and a visible restart action only when verified ready.
+- [x] Handle helper CLI early, surface update failure clearly, preserve 105 existing checks.
+- [x] Set version 1.1.0 and update README download/bootstrap instructions and release notes.
+- [x] Render actual WPF states and request review.
 
 ## Task 3: Verify and publish
 
 - [ ] Review both tasks for compliance and code quality; fix important findings before release.
 - [ ] Run solution tests once all code is stable, publish a fresh self-contained bundle, verify ZIP and standalone smoke.
 - [ ] Use an explicit SourceRevisionId matching the final release commit when publishing; verify ProductVersion and exact asset digest.
-- [ ] Check code and artifact names for secrets and source comments; keep artifacts excluded from Git.
+- [x] Check code and artifact names for secrets and source comments; keep artifacts excluded from Git.
 - [ ] Push source to main, create v1.1.0 as draft, upload the verified ZIP, compare GitHub digest, then publish as latest.
 - [ ] Verify unauthenticated download link; explain that 1.0 needs one manual upgrade.
 

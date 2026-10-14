@@ -1,4 +1,4 @@
-param([switch]$SkipTests, [switch]$NoPublish)
+param([switch]$SkipTests, [switch]$NoPublish, [ValidatePattern('^[a-fA-F0-9]{40}$')][string]$SourceRevisionId)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskWinUtil = Join-Path $taskRoot 'assets\WinUtil\fortnite-winutil.json'
@@ -21,7 +21,9 @@ try {
         $taskOutput = Join-Path $taskRoot 'artifacts\FlyyOptimizer-win-x64'
         $taskArtifacts = [System.IO.Path]::GetFullPath((Join-Path $taskRoot 'artifacts'))
         $taskStaging = Join-Path $taskArtifacts ('portable-staging-' + [Guid]::NewGuid().ToString('N'))
-        & $taskDotnetPath publish src/FlyyOptimizer.App/FlyyOptimizer.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded -o $taskStaging
+        $taskPublishProperties = @('-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true', '-p:DebugType=embedded')
+        if ($SourceRevisionId) { $taskPublishProperties += "-p:SourceRevisionId=$SourceRevisionId" }
+        & $taskDotnetPath publish src/FlyyOptimizer.App/FlyyOptimizer.App.csproj -c Release -r win-x64 --self-contained true @taskPublishProperties -o $taskStaging
         if ($LASTEXITCODE -ne 0) { throw 'La publicación falló.' }
         $taskItems = @(Get-ChildItem -LiteralPath $taskStaging -Force)
         if ($taskItems.Count -ne 2 -or -not (Test-Path -LiteralPath (Join-Path $taskStaging 'FlyyOptimizer.exe') -PathType Leaf) -or -not (Test-Path -LiteralPath (Join-Path $taskStaging 'Archivos') -PathType Container)) {

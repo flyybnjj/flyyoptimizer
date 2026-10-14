@@ -1,5 +1,7 @@
 # Verificación de FlyyOptimizer autocontenido — 14 de octubre de 2026
 
+> Registro histórico de una compilación anterior. PresentMon y la captura se retiraron después. Para 1.1.0 consulta [actualizaciones integradas](github-updates.md) y el README actual.
+
 Esta versión incorpora herramientas nativas en Mejoras/Gaming, el colector oficial de captura incluido y el tema claro con tipografía y movimiento nativos de WPF. El paquete portable incluye el runtime .NET y PresentMon; no necesita instalar WinUtil, Optimizer, SDK ni una aplicación de captura aparte.
 
 ## Pruebas y revisión
