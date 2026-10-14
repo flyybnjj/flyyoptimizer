@@ -256,6 +256,17 @@ internal sealed class OptimizationFixture : IDisposable
 
 internal sealed class FakeOptimizationPlatform : IOptimizationPlatform
 {
+    internal Guid? Overlay;
+    internal uint? FailEffectAction;
+    internal Dictionary<uint, bool> Effects = new() { [0x1002] = true, [0x1004] = true, [0x1006] = true, [0x1012] = true, [0x1016] = true };
+    public Guid GetPowerMode() => Overlay ?? throw new InvalidOperationException("unsupported overlay");
+    public void SetPowerMode(Guid id) => Overlay = id;
+    public bool GetVisualEffect(uint action) => Effects[action];
+    public void SetVisualEffect(uint action, bool enabled)
+    {
+        if (action == FailEffectAction) throw new UnauthorizedAccessException("effect fixture denied");
+        Effects[action] = enabled;
+    }
     private readonly Dictionary<string, RegistryValueState> values = new(StringComparer.OrdinalIgnoreCase);
     internal bool? Animations = true;
     internal Guid ActivePower = Guid.Parse("11111111-1111-1111-1111-111111111111");

@@ -47,10 +47,46 @@ internal interface IOptimizationPlatform
     List<PowerScheme> ReadPowerSchemes();
     Guid GetActivePowerScheme();
     void SetActivePowerScheme(Guid id);
+    Guid GetPowerMode() => throw new InvalidOperationException("El modo de energía no está disponible.");
+    void SetPowerMode(Guid id) => throw new InvalidOperationException("El modo de energía no está disponible.");
+    bool GetVisualEffect(uint action) => throw new InvalidOperationException("El efecto visual no está disponible.");
+    void SetVisualEffect(uint action, bool enabled) => throw new InvalidOperationException("El efecto visual no está disponible.");
 }
 
 internal sealed class NativeOptimizationPlatform : IOptimizationPlatform
 {
+    public Guid GetPowerMode()
+    {
+        RequireAcPower();
+        if (GetActivePowerScheme() != Guid.Parse("381b4222-f694-41f0-9685-ff5bb260df2e"))
+            throw new InvalidOperationException("El modo de energía requiere el plan Equilibrado de Windows; se conserva el plan del fabricante.");
+        var error = PowerGetActualOverlayScheme(out var mode);
+        if (error != 0) throw new Win32Exception((int)error);
+        return mode;
+    }
+    public void SetPowerMode(Guid id)
+    {
+        _ = GetPowerMode();
+        var error = PowerSetActiveOverlayScheme(id);
+        if (error != 0) throw new Win32Exception((int)error);
+    }
+    private static void RequireAcPower()
+    {
+        if (!GetSystemPowerStatus(out var status) || status.Ac != 1)
+            throw new InvalidOperationException("Conecta el equipo a corriente para aplicar o restaurar el modo de rendimiento.");
+    }
+    public bool GetVisualEffect(uint action)
+    {
+        if (!VisualEffects.Allows(action)) throw new ArgumentException("Efecto no permitido.");
+        if (!SystemParametersInfoGet(action, 0, out var enabled, 0)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return enabled;
+    }
+    public void SetVisualEffect(uint action, bool enabled)
+    {
+        if (!VisualEffects.Allows(action)) throw new ArgumentException("Efecto no permitido.");
+        if (!SystemParametersInfoSet(action + 1, 0, enabled ? new IntPtr(1) : IntPtr.Zero, 3))
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+    }
     public RegistryValueState ReadValue(string path, string name)
     {
         using var key = Registry.CurrentUser.OpenSubKey(path, writable: false);
@@ -160,6 +196,12 @@ internal sealed class NativeOptimizationPlatform : IOptimizationPlatform
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SystemParametersInfoSet(uint action, uint parameter, IntPtr value, uint flags);
     [DllImport("powrprof.dll")] private static extern uint PowerGetActiveScheme(IntPtr root, out IntPtr scheme);
+    [DllImport("powrprof.dll")] private static extern uint PowerGetActualOverlayScheme(out Guid scheme);
+    [DllImport("powrprof.dll")] private static extern uint PowerSetActiveOverlayScheme(Guid scheme);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PowerStatus { public byte Ac, BatteryFlags, BatteryPercent, SystemStatus; public uint BatteryLife, FullBatteryLife; }
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetSystemPowerStatus(out PowerStatus status);
     [DllImport("powrprof.dll")] private static extern uint PowerSetActiveScheme(IntPtr root, ref Guid scheme);
     [DllImport("powrprof.dll")] private static extern uint PowerEnumerate(IntPtr root, IntPtr scheme, IntPtr subgroup, uint accessor, uint index, byte[] buffer, ref uint size);
     [DllImport("powrprof.dll")] private static extern uint PowerReadFriendlyName(IntPtr root, ref Guid scheme, IntPtr subgroup, IntPtr setting, byte[]? buffer, ref uint size);

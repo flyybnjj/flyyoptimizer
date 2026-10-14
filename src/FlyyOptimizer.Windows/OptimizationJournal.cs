@@ -96,6 +96,13 @@ internal sealed class OptimizationJournal
                 (value.Key == OptimizationTargets.GameDvr && value.Name == "AppCaptureEnabled" ||
                  value.Key == OptimizationTargets.GameConfig && value.Name == "GameDVR_Enabled"),
             "animations" => value.Kind == "Animations" && value.Key == "" && value.Name == "",
+            "visual-effects" => value.Kind == "VisualEffect" && value.Key == "" &&
+                uint.TryParse(value.Name, out var action) && VisualEffects.Allows(action) &&
+                value.Previous.Exists && value.Previous.Kind == Microsoft.Win32.RegistryValueKind.DWord && value.Previous.Number is 0 or 1 &&
+                value.Intended.Same(RegistryValueState.Dword(0)),
+            "power-mode" => value.Kind == "PowerMode" && value.Key == "AC" && value.Name == "" &&
+                value.Previous.Exists && value.Previous.Kind == Microsoft.Win32.RegistryValueKind.String && Guid.TryParse(value.Previous.Text, out _) &&
+                value.Intended.Same(RegistryValueState.String("ded574b5-45a0-4f42-8737-46345c09c238")),
             "fortnite-gpu" => value.Kind == "Registry" && value.Key == OptimizationTargets.GpuPreferences && FortniteGpuPreference.HasFortnitePathShape(value.Name),
             "power" => value.Kind == "Power" && value.Key == "" && value.Name == "" &&
                 Guid.TryParse(value.Previous.Text, out _) && Guid.TryParse(value.Intended.Text, out _),

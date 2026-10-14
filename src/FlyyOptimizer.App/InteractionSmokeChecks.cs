@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace FlyyOptimizer.App;
 
@@ -104,6 +105,70 @@ internal static class InteractionSmokeChecks
         simpleFortnite.PartialResultNext = true;
         await ExecuteAsync(optimizeCommand!);
         Check(simpleModel.Fortnite.HasActionError && simpleModel.Fortnite.Status != "PC listo.", "A partial failure never reports PC ready in the simple flow");
+        Check(simpleModel.Fortnite.HasFailedSteps && simpleModel.Fortnite.FailedSteps.All(step => !step.Success && !string.IsNullOrWhiteSpace(step.Message)), "Partial optimization exposes failed step messages for the error disclosure");
+        var selectionCalls = simpleFortnite.ApplyCalls;
+        approveOptimization = false;
+        await ExecuteAsync(simpleModel.Fortnite.ApplySelectionCommand);
+        Check(simpleFortnite.ApplyCalls == selectionCalls, "Declining manual selection makes no system changes");
+        approveOptimization = true;
+        simpleModel.Fortnite.Options.Single(option => option.Option.Id == "winutil-game-mode").Selected = false;
+        await ExecuteAsync(simpleModel.Fortnite.ApplySelectionCommand);
+        Check(simpleFortnite.AppliedIds.SequenceEqual(["fortnite-settings"]) && !simpleModel.Fortnite.HasActionError, "Confirmed manual selection applies only the chosen available controls");
+        var updateMode = 0;
+        var cancelDownload = false;
+        var offeredDriver = new DriverUpdateInfo("Driver disponible", "Fixture", "Display", "", "2026-10-14", "12345678-1234-1234-1234-123456789abc", 1);
+        using var updateModel = new MainViewModel(Path.Combine(directory, "updates-flow"), new ViewModelServices
+        {
+            CreateNativeTools = () => new FixtureOptimizationService(), CreateFortniteProfile = () => simpleFortnite,
+            ResolvePresentMon = () => Environment.ProcessPath!,
+            IsElevated = () => true,
+            FindUpdates = _ => Task.FromResult(updateMode == 0 ? new DriverUpdateResult(true, [], "Fixture empty") : updateMode == 1 ? new DriverUpdateResult(true, [offeredDriver], "Fixture offers") : new DriverUpdateResult(false, [offeredDriver], "Fixture incomplete")),
+            DownloadDriverUpdates = async (updates, token) =>
+            {
+                if (cancelDownload) { await Task.Delay(Timeout.Infinite, token); }
+                return new(true, updates.Select(update => update.UpdateId).ToList(), "Descarga lista; no se instalaron drivers.");
+            }
+        });
+        var updateWindow = new MainWindow(updateModel) { Width = 1240, Height = 820, ShowInTaskbar = false, ShowActivated = false, Left = -10000, Top = -10000 };
+        updateModel.SelectedPage = 2; updateWindow.Show();
+        await updateModel.SearchUpdatesAsync();
+        Check(!updateModel.HasUpdates && !updateModel.DownloadUpdatesCommand.CanExecute(null) && updateModel.UpdateStatus.Contains("No hay actualizaciones"), "No-update search shows a clear empty result and no downloadable actions");
+        await RenderFixtureWindowAsync(updateWindow, Path.Combine(directory, "updates-none.png"));
+        updateMode = 1;
+        await updateModel.SearchUpdatesAsync();
+        Check(updateModel.HasUpdates && updateModel.HasDownloadableUpdates && updateModel.DownloadUpdatesCommand.CanExecute(null), "Verified offers expose download and available-update list");
+        ((Expander)updateWindow.FindName("AvailableUpdates")).IsExpanded = true;
+        await RenderFixtureWindowAsync(updateWindow, Path.Combine(directory, "updates-available.png"));
+        await updateModel.DownloadUpdatesAsync();
+        Check(updateModel.Updates.Single().Downloaded && !updateModel.HasDownloadableUpdates && !updateModel.DownloadUpdatesCommand.CanExecute(null) && updateModel.DownloadUpdatesLabel == "Descargadas", "Download completion marks only confirmed payloads downloaded and disables repeat download");
+        await RenderFixtureWindowAsync(updateWindow, Path.Combine(directory, "updates-downloaded.png"));
+        await updateModel.SearchUpdatesAsync();
+        cancelDownload = true;
+        var pendingDownload = updateModel.DownloadUpdatesAsync();
+        Check(updateModel.IsBusy && !updateModel.ScanCommand.CanExecute(null) && updateModel.CancelCommand.CanExecute(null), "Driver download shares operation gating and cancellation");
+        updateModel.CancelCommand.Execute(null);
+        await pendingDownload;
+        Check(!updateModel.Updates.Single().Downloaded && updateModel.UpdateStatus.Contains("cancelada") && updateModel.DownloadUpdatesCommand.CanExecute(null), "Cancelled download keeps offers retryable without claiming downloaded");
+        updateMode = 2;
+        await updateModel.SearchUpdatesAsync();
+        Check(!updateModel.HasUpdates && !updateModel.HasDownloadableUpdates && updateModel.HasError && updateModel.UpdateStatus.Contains("no disponible"), "Incomplete query does not expose unverified downloads or claim there are no updates");
+        updateWindow.Hide(); updateWindow.Close();
+        var permitElevation = false;
+        using var permissionModel = new MainViewModel(Path.Combine(directory, "update-permission"), new ViewModelServices
+        {
+            CreateNativeTools = () => new FixtureOptimizationService(), CreateFortniteProfile = () => simpleFortnite,
+            ResolvePresentMon = () => Environment.ProcessPath!, IsElevated = () => false,
+            FindUpdates = _ => Task.FromResult(new DriverUpdateResult(true, [offeredDriver], "Fixture offer")),
+            DownloadDriverUpdates = (_, _) => throw new InvalidOperationException("Downloads must wait for elevation"),
+            OpenElevatedForUpdates = () => { if (!permitElevation) throw new System.ComponentModel.Win32Exception(1223); }
+        });
+        await permissionModel.SearchUpdatesAsync();
+        await permissionModel.DownloadUpdatesAsync();
+        Check(permissionModel.DownloadNeedsPermission && permissionModel.UpdateStatus.Contains("Permiso cancelado") && permissionModel.DownloadUpdatesCommand.CanExecute(null), "Cancelled download permission keeps a clear recovery and does not start a download");
+        permitElevation = true;
+        await permissionModel.DownloadUpdatesAsync();
+        var driverStart = Elevation.CreateDriverStartInfo();
+        Check(permissionModel.UpdateStatus.Contains("Flyy se abrió") && driverStart.ArgumentList.SequenceEqual(["--drivers"]) && driverStart.Verb == "runas" && driverStart.FileName == Path.Combine(AppContext.BaseDirectory, "FlyyOptimizer.exe"), "Download elevation targets only Flyy and opens the Drivers view without starting a hidden installation");
         Check(!model.Fortnite.HasPreview && !model.Fortnite.ApplyCommand.CanExecute(null) && fortnite.ApplyCalls == 0, "Fortnite optimization requires reviewing detected installation and selected changes before any mutation");
         await model.Fortnite.DetectAsync();
         Check(model.Fortnite.HasPreview && model.Fortnite.IsInstalled && fortnite.ApplyCalls == 0 && model.Fortnite.Options.Count == 4 && !model.Fortnite.Options.Single(o => o.Option.Id == "gpu-preference").Selected && !model.Fortnite.Options.Single(o => o.Option.Id == "animations").Selected, "Fortnite preview detects paths without mutating and omits unavailable or optional changes from selection");
@@ -294,6 +359,14 @@ internal static class InteractionSmokeChecks
         var navigationWindow = new MainWindow(navigationModel) { Width = 1240, Height = 820, ShowInTaskbar = false, ShowActivated = false, Left = -10000, Top = -10000 };
         navigationWindow.Show();
         await dispatcher.InvokeAsync(navigationWindow.UpdateLayout, DispatcherPriority.Loaded);
+        Check(navigationWindow.Icon is not null, "Packaged window has the Flyy icon");
+        navigationModel.SelectedPage = 4;
+        await navigationModel.WaitForFortniteDetectionAsync();
+        await dispatcher.InvokeAsync(navigationWindow.UpdateLayout, DispatcherPriority.Loaded);
+        Check(!VisibleText(navigationWindow, true).Any(text => text.Contains("Medir la fluidez") || text.Contains("Cómo leer las métricas") || text.Contains("PID manual")), "Gaming exposes performance choices without the removed capture and metric flow");
+        navigationModel.SelectedPage = 2;
+        await dispatcher.InvokeAsync(navigationWindow.UpdateLayout, DispatcherPriority.Loaded);
+        Check(VisibleText(navigationWindow, true).Contains("Drivers para tu equipo") && !VisibleText(navigationWindow, true).Contains("Inventario de drivers"), "Unscanned driver page shows discovery instead of empty inventory");
         await navigationModel.OpenGuideAsync("OpenStartup");
         await dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
         navigationWindow.UpdateLayout();
@@ -319,11 +392,29 @@ internal static class InteractionSmokeChecks
         return checks;
     }
 
-    private static IEnumerable<string> VisibleText(DependencyObject root)
+    private static IEnumerable<string> VisibleText(DependencyObject root, bool visibleOnly = false)
     {
+        if (visibleOnly && root is UIElement { IsVisible: false }) yield break;
         if (root is TextBlock text) yield return text.Text;
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
-            foreach (var child in VisibleText(VisualTreeHelper.GetChild(root, i))) yield return child;
+            foreach (var child in VisibleText(VisualTreeHelper.GetChild(root, i), visibleOnly)) yield return child;
+    }
+
+    private static async Task RenderFixtureWindowAsync(Window window, string path)
+    {
+        await window.Dispatcher.InvokeAsync(window.UpdateLayout, DispatcherPriority.ContextIdle);
+        var rendered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler handler = (_, _) => rendered.TrySetResult();
+        CompositionTarget.Rendering += handler;
+        try { await rendered.Task.WaitAsync(TimeSpan.FromSeconds(3)); }
+        finally { CompositionTarget.Rendering -= handler; }
+        window.UpdateLayout();
+        var visual = (FrameworkElement)window.Content;
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(visual.ActualWidth), (int)Math.Ceiling(visual.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var stream = File.Create(path); encoder.Save(stream);
     }
 
     private sealed class FixtureFortniteProfileService(string directory) : IFortniteProfileService

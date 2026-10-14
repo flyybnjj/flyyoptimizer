@@ -94,6 +94,28 @@ public sealed class NativeOptimizationService : INativeOptimizationService
             return NewEntry(id, group.Title, group.Values.Select(value => RegistryChange(value.Key, value.Name, RegistryValueState.Dword(value.Target))).ToList());
         }, cancellationToken);
 
+    public Guid? ReadPowerMode()
+    {
+        try { return platform.GetPowerMode(); }
+        catch (Exception ex) when (IsExpectedFailure(ex) || ex is EntryPointNotFoundException) { return null; }
+    }
+
+    public bool CanReduceVisualEffects()
+    {
+        try { foreach (var action in VisualEffects.Actions) _ = platform.GetVisualEffect(action); return true; }
+        catch (Exception ex) when (IsExpectedFailure(ex)) { return false; }
+    }
+
+    public Task<OptimizationOutcome> SetBestPerformanceModeAsync(Func<bool> onAcPower, CancellationToken cancellationToken = default) =>
+        ExecuteAsync(_ => NewEntry("power-mode", "Energía · Máximo rendimiento con corriente",
+            [new("PowerMode", "AC", "", RegistryValueState.String(platform.GetPowerMode().ToString()),
+                RegistryValueState.String("ded574b5-45a0-4f42-8737-46345c09c238"))]), cancellationToken, onAcPower);
+
+    public Task<OptimizationOutcome> ReduceVisualEffectsAsync(CancellationToken cancellationToken = default) =>
+        ExecuteAsync(_ => NewEntry("visual-effects", "Windows · Reducir efectos visuales",
+            VisualEffects.Actions.Select(action => new OptimizationValueChange("VisualEffect", "", action.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                RegistryValueState.Dword(platform.GetVisualEffect(action) ? 1 : 0), RegistryValueState.Dword(0))).ToList()), cancellationToken);
+
     public Task<OptimizationOutcome> SetGameGpuPreferenceAsync(string executablePath, CancellationToken cancellationToken = default) =>
         SetGameGpuPreferenceCheckedAsync(executablePath, null, cancellationToken);
 
@@ -276,6 +298,8 @@ public sealed class NativeOptimizationService : INativeOptimizationService
         "Registry" => platform.ReadValue(value.Key, value.Name),
         "Animations" => AnimationState(),
         "Power" => RegistryValueState.String(platform.GetActivePowerScheme().ToString()),
+        "PowerMode" => RegistryValueState.String(platform.GetPowerMode().ToString()),
+        "VisualEffect" => RegistryValueState.Dword(platform.GetVisualEffect(VisualEffects.Parse(value.Name)) ? 1 : 0),
         _ => throw new InvalidDataException("Acción de respaldo incompatible.")
     };
 
@@ -286,6 +310,8 @@ public sealed class NativeOptimizationService : INativeOptimizationService
             case "Registry": platform.WriteValue(value.Key, value.Name, state); break;
             case "Animations": platform.SetAnimations(state.Number == 1); break;
             case "Power": platform.SetActivePowerScheme(Guid.Parse(state.Text!)); break;
+            case "PowerMode": platform.SetPowerMode(Guid.Parse(state.Text!)); break;
+            case "VisualEffect": platform.SetVisualEffect(VisualEffects.Parse(value.Name), state.Number == 1); break;
             default: throw new InvalidDataException("Acción de respaldo incompatible.");
         }
     }
@@ -304,7 +330,7 @@ public sealed class NativeOptimizationService : INativeOptimizationService
     }
 
     private static bool IsExpectedFailure(Exception ex) => ex is IOException or InvalidDataException or UnauthorizedAccessException or SecurityException
-        or ArgumentException or InvalidOperationException or Win32Exception;
+        or ArgumentException or InvalidOperationException or Win32Exception or EntryPointNotFoundException;
 
     private static string FriendlyError(Exception ex) => ex is UnauthorizedAccessException or SecurityException
         ? "Windows denegó el acceso. No se pudo completar la preferencia." : ex.Message;

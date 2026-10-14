@@ -82,8 +82,13 @@ public enum Severity { Info, Suggestion, Warning, Critical }
 public enum ActionKind { None, OpenStartup, OpenStorage, OpenPower, OpenWindowsUpdate, OpenOptionalDrivers, OpenGraphics, OpenGameMode, OpenManufacturer, OpenTaskManager }
 
 public sealed record Finding(string Id, string Title, string Description, string Evidence, Severity Severity, string Category, ActionKind Action = ActionKind.None, string? ActionUrl = null);
-public sealed record DriverUpdateInfo(string Title, string Manufacturer, string DeviceClass, string Version, string Date);
+public sealed record DriverUpdateInfo(string Title, string Manufacturer, string DeviceClass, string Version, string Date,
+    string UpdateId = "", int Revision = 0, bool Downloaded = false, bool EulaAccepted = true)
+{
+    public string DownloadState => Downloaded ? "Descargada" : EulaAccepted ? "Disponible para descargar" : "Requiere aceptar su licencia en Windows Update";
+}
 public sealed record DriverUpdateResult(bool Success, List<DriverUpdateInfo> Updates, string Message);
+public sealed record DriverDownloadResult(bool Success, List<string> DownloadedIds, string Message);
 public sealed record ActionRecord(DateTimeOffset At, string FindingId, string Title, string Outcome);
 public sealed record SavedReport(string Path, DateTimeOffset CapturedAt, string CpuName, int FindingCount);
 

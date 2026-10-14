@@ -2,6 +2,7 @@ using Microsoft.Win32.SafeHandles;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Management;
 
 namespace FlyyOptimizer.Windows;
 
@@ -52,6 +53,7 @@ internal static class FortniteSafeFiles
     {
         var full = LocalPath(path);
         var directories = LockDirectory(Path.GetDirectoryName(full)!);
+        DirectoryLease? packageDirectories = null;
         FileStream? stream = null;
         try
         {
@@ -66,10 +68,61 @@ internal static class FortniteSafeFiles
             var finalPath = ResolvePath(stream.SafeFileHandle);
             var expectedPath = Path.Combine(directories.ResolvedPath, Path.GetFileName(full));
             if (!expectedPath.Equals(finalPath, StringComparison.OrdinalIgnoreCase))
-                throw new IOException("El destino del archivo cambió.");
-            return new LockedFile(full, stream, directories, information);
+            {
+                if (!IsPackageAlias(full, finalPath, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), CurrentPackageFamily()))
+                    throw new IOException("El destino del archivo cambió.");
+                packageDirectories = LockDirectory(Path.GetDirectoryName(finalPath)!);
+                if (!Path.Combine(packageDirectories.ResolvedPath, Path.GetFileName(full)).Equals(finalPath, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("El destino del archivo cambió.");
+            }
+            return new LockedFile(full, stream, directories, information, packageDirectories);
         }
-        catch { stream?.Dispose(); directories.Dispose(); throw; }
+        catch { stream?.Dispose(); packageDirectories?.Dispose(); directories.Dispose(); throw; }
+    }
+
+    // Only the OS-reported current package's exact AppData merge is accepted.
+    // Its physical parent is also checked and held; ordinary redirections remain rejected.
+    internal static bool IsPackageAlias(string logical, string actual, string localData, string? family)
+    {
+        if (string.IsNullOrWhiteSpace(family) || family.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('.' or '_' or '-'))) return false;
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(localData));
+        if (!logical.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return false;
+        var expected = Path.Combine(root, "Packages", family, "LocalCache", "Local", logical[(root.Length + 1)..]);
+        return expected.Equals(actual, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? CurrentPackageFamily()
+    {
+        uint length = 0;
+        if (GetCurrentPackageFamilyName(ref length, null) == 122 && length is > 0 and <= 1024)
+        {
+            var name = new StringBuilder((int)length);
+            if (GetCurrentPackageFamilyName(ref length, name) == 0) return name.ToString();
+        }
+        // A desktop host may pass its filesystem merge to an unpackaged child.
+        // Use only identities reported by Windows for the actual process ancestry.
+        try
+        {
+            using var query = new ManagementObjectSearcher("SELECT ProcessId, ParentProcessId FROM Win32_Process");
+            using var results = query.Get();
+            var parents = new Dictionary<uint, uint>();
+            foreach (ManagementObject item in results)
+                using (item) parents[Convert.ToUInt32(item["ProcessId"])] = Convert.ToUInt32(item["ParentProcessId"]);
+            var current = (uint)Environment.ProcessId;
+            var seen = new HashSet<uint> { current };
+            for (var depth = 0; depth < 8 && parents.TryGetValue(current, out var parent) && parent != 0 && seen.Add(parent); depth++)
+            {
+                current = parent;
+                using var handle = OpenProcess(0x1000, false, current);
+                if (handle.IsInvalid) continue;
+                length = 0;
+                if (GetPackageFamilyName(handle, ref length, null) != 122 || length is 0 or > 1024) continue;
+                var name = new StringBuilder((int)length);
+                if (GetPackageFamilyName(handle, ref length, name) == 0) return name.ToString();
+            }
+        }
+        catch (Exception ex) when (ex is ManagementException or UnauthorizedAccessException or Win32Exception) { }
+        return null;
     }
 
     internal static void WriteDurableNew(string path, byte[] bytes)
@@ -97,7 +150,7 @@ internal static class FortniteSafeFiles
         public void Dispose() { foreach (var handle in handles) handle.Dispose(); }
     }
 
-    internal sealed class LockedFile(string path, FileStream stream, DirectoryLease directories, FileInformation information) : IDisposable
+    internal sealed class LockedFile(string path, FileStream stream, DirectoryLease directories, FileInformation information, DirectoryLease? packageDirectories = null) : IDisposable
     {
         internal string Path { get; } = path;
         internal long Length => stream.Length;
@@ -120,7 +173,7 @@ internal static class FortniteSafeFiles
             stream.Flush(flushToDisk: true);
             if (!ReadBytes().AsSpan().SequenceEqual(bytes)) throw new IOException("Windows no confirmó los bytes escritos.");
         }
-        public void Dispose() { stream.Dispose(); directories.Dispose(); }
+        public void Dispose() { stream.Dispose(); packageDirectories?.Dispose(); directories.Dispose(); }
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -140,6 +193,12 @@ internal static class FortniteSafeFiles
 
     [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFile(string path, uint access, uint sharing, IntPtr security, uint creation, uint flags, IntPtr template);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetCurrentPackageFamilyName(ref uint length, StringBuilder? name);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetPackageFamilyName(SafeFileHandle process, ref uint length, StringBuilder? name);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern SafeFileHandle OpenProcess(uint access, [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint id);
     [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out FileInformation information);
     [DllImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", CharSet = CharSet.Unicode, SetLastError = true)]

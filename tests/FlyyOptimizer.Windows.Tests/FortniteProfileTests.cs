@@ -73,10 +73,26 @@ public sealed class FortniteProfileTests
         using var fixture = new ProfileFixture();
         var preview = await fixture.Profile.PreviewAsync();
         Assert.True(preview.Installation.Installed);
-        Assert.Equal(11, preview.Options.Count);
+        Assert.Equal(12, preview.Options.Count);
         Assert.False(preview.Options.Single(x => x.Id == "animations").SelectedByDefault);
         Assert.Empty((await fixture.Native.InspectAsync()).Changes);
         Assert.Equal(0, fixture.Game.Applied);
+    }
+
+    [Fact]
+    public async Task Automatic_performance_profile_preserves_privacy_and_search_preferences()
+    {
+        using var fixture = new ProfileFixture();
+        const string advertising = @"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo";
+        fixture.Platform.WriteValue(advertising, "Enabled", RegistryValueState.Dword(1));
+        var profile = fixture.Profile;
+        var preview = await profile.PreviewAsync();
+        var result = await profile.ApplyAsync(preview.Options.Where(option => option.Available && option.SelectedByDefault).Select(option => option.Id).ToArray());
+        Assert.All(result.Steps, step => Assert.True(step.Success, step.Message));
+        Assert.Equal(1, fixture.Platform.ReadValue(advertising, "Enabled").Number);
+        Assert.False(fixture.Platform.ReadValue(@"Software\Microsoft\Windows\CurrentVersion\Search", "BingSearchEnabled").Exists);
+        Assert.False(fixture.Platform.Effects[0x1002]);
+        Assert.Equal(0, fixture.Platform.ReadValue(@"Software\Microsoft\Windows\CurrentVersion\GameDVR", "AudioCaptureEnabled").Number);
     }
 
     [Fact]

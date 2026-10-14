@@ -16,7 +16,8 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
-            if (e.Args.Length > 0)
+            var driverMode = e.Args.Length == 1 && e.Args[0] == "--drivers";
+            if (e.Args.Length > 0 && !driverMode)
             {
                 if (e.Args.Length != 2 || e.Args[0] is not ("--scan" or "--render" or "--smoke-test" or "--interaction-test"))
                     throw new ArgumentException("Uso: FlyyOptimizer.exe --scan <informe.json> | --render <vista.png> | --smoke-test <directorio> | --interaction-test <directorio>");
@@ -39,16 +40,20 @@ public partial class App : Application
             var model = new MainViewModel(e.Args.FirstOrDefault() == "--smoke-test" ? Path.Combine(Path.GetFullPath(e.Args[1]), "history") : null);
             var window = new MainWindow(model);
             MainWindow = window;
-            window.Closed += (_, _) => { if (e.Args.Length == 0) Shutdown(0); };
+            window.Closed += (_, _) => { if (e.Args.Length == 0 || driverMode) Shutdown(0); };
             window.Show();
             await model.InitializeAsync();
-            if (e.Args.Length == 0) { ShutdownMode = ShutdownMode.OnMainWindowClose; return; }
+            if (e.Args.Length == 0 || driverMode)
+            { if (driverMode) model.SelectedPage = 2; ShutdownMode = ShutdownMode.OnMainWindowClose; return; }
             Task? liveRender = null;
             System.ComponentModel.PropertyChangedEventHandler? captureLive = null;
             if (e.Args[0] == "--smoke-test")
             {
                 var renderDirectory = Path.GetFullPath(e.Args[1]);
                 await RenderAsync(window, Path.Combine(renderDirectory, "empty.png"));
+                model.SelectedPage = 2;
+                await RenderAsync(window, Path.Combine(renderDirectory, "drivers-empty.png"));
+                model.SelectedPage = 0;
                 window.Width = window.MinWidth; window.Height = window.MinHeight;
                 await RenderAsync(window, Path.Combine(renderDirectory, "empty-minimum.png"));
                 window.Width = 1240; window.Height = 820;
@@ -101,6 +106,10 @@ public partial class App : Application
                     await RenderAsync(window, Path.Combine(directory, pages[i] + "-minimum.png"));
                 }
                 await RenderDeepViewsAsync(window, model, directory, "-minimum");
+                var confirmation = new OptimizationConfirmation { Owner = window, ShowActivated = false };
+                confirmation.Show();
+                await RenderAsync(confirmation, Path.Combine(directory, "optimization-confirmation.png"));
+                confirmation.Close();
                 await WriteJsonAsync(Path.Combine(directory, "status.json"), new
                 {
                     Success = true, model.Snapshot.CapturedAt, model.Snapshot.Id,
@@ -143,7 +152,7 @@ public partial class App : Application
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(value, ReportStore.JsonOptions));
     }
-    private static async Task SettleLayoutAsync(MainWindow window)
+    private static async Task SettleLayoutAsync(Window window)
     {
         await window.Dispatcher.InvokeAsync(window.UpdateLayout, DispatcherPriority.Loaded);
         await Task.Delay(Motion.SettleMilliseconds);
@@ -156,7 +165,7 @@ public partial class App : Application
         finally { CompositionTarget.Rendering -= handler; }
         window.UpdateLayout();
     }
-    private static async Task RenderAsync(MainWindow window, string path)
+    private static async Task RenderAsync(Window window, string path)
     {
         await SettleLayoutAsync(window);
         var visual = (FrameworkElement)window.Content;
@@ -170,15 +179,14 @@ public partial class App : Application
     }
     private static async Task RenderDeepViewsAsync(MainWindow window, MainViewModel model, string directory, string suffix)
     {
-        foreach (var (page, offset, name) in new[] { (2, 350d, "drivers-package"), (3, 380d, "improvements-startup"), (3, 770d, "improvements-cleanup"), (3, 1100d, "improvements-undo"), (4, 420d, "gaming-capture") })
+        foreach (var (page, offset, name) in new[] { (2, 350d, "drivers-package"), (3, 380d, "improvements-startup"), (3, 770d, "improvements-cleanup"), (3, 1100d, "improvements-undo"), (4, 420d, "gaming-options") })
         {
             model.SelectedPage = page;
             if (page == 2) model.SelectedOemPackage = model.OemPackages.FirstOrDefault();
             await SettleLayoutAsync(window);
             if (window.Pages.SelectedContent is System.Windows.Controls.ScrollViewer viewer)
             {
-                if (page == 4) window.CaptureSection.BringIntoView();
-                else viewer.ScrollToVerticalOffset(offset);
+                viewer.ScrollToVerticalOffset(offset);
                 await RenderAsync(window, Path.Combine(directory, name + suffix + ".png"));
                 viewer.ScrollToTop();
                 await SettleLayoutAsync(window);

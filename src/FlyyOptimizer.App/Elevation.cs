@@ -30,4 +30,14 @@ internal static class Elevation
     {
         using var launched = Process.Start(CreateStartInfo());
     }
+    internal static ProcessStartInfo CreateDriverStartInfo()
+    {
+        var start = CreateStartInfo();
+        start.ArgumentList.Add("--drivers");
+        return start;
+    }
+    public static void OpenElevatedDrivers()
+    {
+        using var launched = Process.Start(CreateDriverStartInfo());
+    }
 }

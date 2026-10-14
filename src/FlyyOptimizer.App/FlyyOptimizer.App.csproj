@@ -7,8 +7,10 @@
     <Nullable>enable</Nullable>
     <AssemblyName>FlyyOptimizer</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/Flyy.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets/Flyy.ico" />
     <ProjectReference Include="../FlyyOptimizer.Core/FlyyOptimizer.Core.csproj" />
     <ProjectReference Include="../FlyyOptimizer.Windows/FlyyOptimizer.Windows.csproj" />
     <ProjectReference Include="../FlyyOptimizer.Gaming/FlyyOptimizer.Gaming.csproj" />
@@ -17,8 +19,6 @@
     <Content Include="../../README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../README.md')" />
     <Content Include="../../THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../THIRD-PARTY-NOTICES.md')" />
     <Content Include="../../licenses/**/*" Link="licenses/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../../assets/PresentMon/PresentMon.exe" Link="tools/PresentMon/PresentMon.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../../assets/PresentMon/provenance.json" Link="tools/PresentMon/provenance.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../assets/WinUtil/*" Link="tools/WinUtil/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

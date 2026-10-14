@@ -1,12 +1,12 @@
 # FlyyOptimizer
 
-App de escritorio en español para Windows 11 x64. Analiza el equipo, muestra evidencia de oportunidades de rendimiento, reúne información de drivers y permite comparar sesiones gaming.
+App de escritorio en español para Windows 11 x64. Analiza el equipo, muestra evidencia de oportunidades de rendimiento, reúne drivers oficiales y aplica ajustes reversibles para Windows y Fortnite.
 
 La interfaz usa superficies claras, tipografía Segoe UI Variable y transiciones nativas al navegar y usar controles. El movimiento respeta la preferencia de animaciones de Windows y el modo de alto contraste.
 
 ## Abrir la app
 
-En la distribución portable, extrae toda la carpeta y abre `FlyyOptimizer.exe`. El paquete incluye .NET y la consola de medición PresentMon; el usuario no necesita instalar SDK, WinUtil, Optimizer ni utilidades de captura aparte. Conserva los DLL, la carpeta `tools` y las licencias junto al ejecutable.
+En la distribución portable, extrae toda la carpeta y abre `FlyyOptimizer.exe`. El paquete incluye .NET; el usuario no necesita instalar SDK, WinUtil, Optimizer ni utilidades de captura aparte. Conserva los DLL, la carpeta `tools` y las licencias junto al ejecutable.
 
 Desde el proyecto:
 
@@ -21,33 +21,18 @@ Para compilar necesitas el SDK .NET 10. El script también reconoce el SDK aisla
 
 1. Pulsa **Analizar equipo**. Sigue las etapas y los recursos en vivo mientras se identifica si es portátil o escritorio, el fabricante, el modelo comercial y el SKU. Las lecturas son reales y puedes cancelar.
 2. Revisa **Hardware** y **Mejoras**. Además de recomendaciones con evidencia, las herramientas permiten seleccionar un plan de energía existente, gestionar entradas de inicio del usuario y reducir animaciones. Los cambios elegidos guardan su estado anterior para deshacerlos.
-3. En **Drivers**, consulta las versiones instaladas y las ofertas de Windows Update. Para Lenovo, el análisis consulta también el catálogo oficial del modelo/SKU. Puedes filtrar sus paquetes y abrir su ficha o descarga oficial. La fecha de un driver no demuestra que esté desactualizado.
+3. En **Drivers**, pulsa **Buscar actualizaciones**. Si Windows Update ofrece drivers, aparece **Descargar** y una lista desplegable; si no, aparece un mensaje sin esos controles. Descargar guarda los archivos en Windows Update, sin instalarlos; puede abrir Flyy con permisos de administrador. Para Lenovo, el análisis consulta también el catálogo oficial del modelo/SKU. La fecha de un driver no demuestra que esté desactualizado.
 4. Usa la vista previa de temporales para elegir archivos a eliminar y comprobar espacio recuperado/archivos omitidos. Los archivos eliminados no se pueden deshacer. Las guías de Windows siguen disponibles y su historial registra únicamente que se abrieron.
-5. Pulsa **Optimizar PC** en Mejoras o Gaming y confirma **Sí**. Flyy detecta Fortnite y aplica automáticamente las preferencias disponibles. Al completar muestra **PC listo**; un fallo o cancelación conserva su indicación y los respaldos. En Mejoras puedes desplegar **Restaurar optimización**. Las capturas gaming siguen disponibles para comparar sesiones del mismo juego y escenario.
+5. Pulsa **Optimizar PC** en Mejoras o Gaming y confirma **Sí**. Flyy detecta Fortnite y aplica automáticamente las preferencias disponibles. Al completar muestra **PC listo**; un fallo o cancelación conserva su indicación y los respaldos. En Mejoras puedes desplegar **Restaurar optimización**. En Gaming puedes elegir los controles de rendimiento y pulsar Aplicar selección.
 6. Usa **Historial** para volver a un diagnóstico guardado y exporta un informe JSON o Markdown.
 
-## Gaming y PresentMon
+## Rendimiento y Fortnite
 
-**Optimizar PC** combina la selección integrada de Modo Juego y preferencias basadas en WinUtil/Optimizer con ajustes propios de Flyy: capturas Xbox, plan Alto rendimiento existente en corriente, preferencia GPU y calidad gráfica baja. Incluye 16 valores adicionales para acceso en segundo plano de apps Store, precarga/background de Edge, contenido promocional, búsqueda web y personalización diagnóstica. Estas preferencias pueden limitar notificaciones/sincronización; algunas requieren reabrir la app o iniciar sesión y su efecto depende de Windows/políticas. No se presenta privacidad o cambios de escritorio como FPS ganados. El perfil no inicia limpieza ni retira entradas de inicio automáticamente.
+**Optimizar PC** aplica los controles disponibles: Modo Juego, grabación Xbox, carga de apps Store/Edge, efectos del escritorio, GPU de Fortnite y calidad competitiva del juego. Con corriente usa el modo Mejor rendimiento de Windows en equipos compatibles con el plan Equilibrado; si no está disponible, puede usar un plan Alto rendimiento ya existente. La energía puede aumentar consumo, ruido y temperatura. Se comprueban los valores aplicados y se guardan los originales para restaurar.
 
-La detección lee manifiestos locales Epic y verifica el ejecutable, con una búsqueda acotada de carpetas comunes y selección manual. Para editar `GameUserSettings.ini`, cierra Fortnite y asegúrate de que el archivo ya exista y permita escritura. El perfil conserva resolución, límite de FPS, renderizador y controles, y no vuelve el archivo de solo lectura. **Restaurar ajuste** usa el respaldo original y comprueba cambios externos antes de restaurarlo. Modo Performance se explica en la guía incluida y se configura en Fortnite/Launcher. El perfil no anuncia FPS adicionales sin una medición comparable.
+En **Gaming**, personaliza los controles y pulsa **Aplicar selección**. Los ajustes no disponibles explican su requisito. No se incluyen preferencias de publicidad, telemetría ni búsqueda web en este perfil de rendimiento. La app no ofrece captura, importación de CSV ni comparación de métricas y ya no distribuye PresentMon.
 
-Los cambios proceden de recursos incluidos y APIs locales; no se descarga ni ejecuta un script remoto de WinUtil. Fuente y alcance en [la investigación Fortnite](docs/research/2026-10-14-fortnite-profile.md), [la detección y restauración del juego](docs/fortnite-game.md) y [la verificación de esta versión](docs/fortnite-verification.md).
-
-La distribución incluye la consola x64 oficial PresentMon 2.6.0, cuya procedencia es [la release oficial](https://github.com/GameTechDev/PresentMon/releases/tag/v2.6.0). FlyyOptimizer valida el binario incluido y lo resuelve automáticamente. La captura funciona sin descargar utilidades en el primer uso. ETW puede necesitar permisos del grupo Performance Log Users o administrador de Windows. Si Windows rechaza la captura por permisos y la app no está elevada, aparece **Abrir Flyy como administrador**: el usuario puede abrir otra ventana de Flyy con el diálogo de permisos de Windows, conservando la ventana y sesión actuales.
-
-Si se pierde o altera el binario incluido, extrae nuevamente el paquete completo de FlyyOptimizer. No se sustituye automáticamente por otro ejecutable ni se pide instalar una aplicación externa.
-
-El CSV debe corresponder a un proceso y una cadena de presentación. Mezclar varias cadenas o juegos distorsiona los tiempos, por lo que el importador rechaza mezclas identificables. Admite cabeceras compatibles de PresentMon y omite filas de tiempo inválido, indicando su número.
-
-- FPS medios: `1000 / frame time medio en ms`.
-- Percentiles P95 y P99: rango más próximo sobre los tiempos ordenados.
-- 1% low: `1000 / media del 1% de frames más lentos`, redondeando hacia arriba el número de frames.
-- Los tiempos por frame no son latencia de entrada.
-
-Una comparación solo es útil si repites el escenario y las condiciones. Una reducción de uso de CPU no demuestra por sí sola mayor rendimiento.
-
-Los CSV de captura se conservan en `%LocalAppData%\FlyyOptimizer\Captures`. Puedes importarlos nuevamente o copiarlos para analizarlos en otra herramienta.
+La detección de Fortnite usa manifiestos Epic y rutas acotadas. Solo edita claves gráficas existentes del usuario con el juego cerrado; preserva resolución, límite de FPS, renderizador, controles y archivos de anti-cheat. No promete una mejora de FPS sin medirla. [Alcance, referencias y verificación](docs/performance-focused.md).
 
 ## Qué puede comprobar
 

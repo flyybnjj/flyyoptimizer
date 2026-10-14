@@ -62,7 +62,7 @@ public sealed class DriverUpdateService
             for (var index = 0; index < count; index++)
             {
                 token.ThrowIfCancellationRequested();
-                object? update = null;
+                object? update = null, identity = null;
                 try
                 {
                     update = ((dynamic)collection).Item(index);
@@ -70,9 +70,11 @@ public sealed class DriverUpdateService
                     var date = ComText(() => ((dynamic)update).DriverVerDate);
                     if (DateTime.TryParse(date, CultureInfo.CurrentCulture, DateTimeStyles.None, out var parsed)) date = parsed.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                     // WUA exposes DriverVerDate, but no structured driver-version property. Do not guess from the title.
-                    updates.Add(new DriverUpdateInfo(title, ComText(() => ((dynamic)update).DriverManufacturer), ComText(() => ((dynamic)update).DriverClass), "", date));
+                    identity = ((dynamic)update).Identity;
+                    updates.Add(new DriverUpdateInfo(title, ComText(() => ((dynamic)update).DriverManufacturer), ComText(() => ((dynamic)update).DriverClass), "", date,
+                        ComText(() => ((dynamic)identity).UpdateID), (int)((dynamic)identity).RevisionNumber, (bool)((dynamic)update).IsDownloaded, (bool)((dynamic)update).EulaAccepted));
                 }
-                finally { Release(update); }
+                finally { Release(identity); Release(update); }
             }
             if (code != 2) return new DriverUpdateResult(false, updates, "Windows Update devolvió una consulta incompleta. Abre Windows Update para revisar su estado.");
             return new DriverUpdateResult(true, updates, updates.Count == 0

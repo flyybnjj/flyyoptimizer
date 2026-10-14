@@ -36,6 +36,7 @@ public sealed class FortniteViewModel : ObservableObject
         DetectCommand = Command(_ => DetectAsync());
         ChooseFolderCommand = Command(_ => ChooseFolderAsync());
         ApplyCommand = Command(_ => ApplyAsync(), _ => HasPreview && Options.Any(o => o.Option.Available && o.Selected));
+        ApplySelectionCommand = Command(_ => confirmOptimization() ? ApplyAsync() : Task.CompletedTask, _ => HasPreview && Options.Any(o => o.Option.Available && o.Selected));
         UndoCommand = Command(_ => UndoAsync(), _ => SelectedChange is { CanUndo: true });
     }
 
@@ -46,6 +47,7 @@ public sealed class FortniteViewModel : ObservableObject
     public ICommand OptimizeCommand { get; }
     public ICommand ChooseFolderCommand { get; }
     public ICommand ApplyCommand { get; }
+    public ICommand ApplySelectionCommand { get; }
     public ICommand UndoCommand { get; }
     public ObservableCollection<FortniteOptionChoice> Options { get; } = [];
     public ObservableCollection<FortniteProfileStepResult> Steps { get; } = [];
@@ -58,6 +60,8 @@ public sealed class FortniteViewModel : ObservableObject
     public bool IsGameRunning => preview?.Installation.IsRunning == true;
     public bool HasChanges => Changes.Count > 0;
     public bool HasResults => Steps.Count > 0;
+    public IReadOnlyList<FortniteProfileStepResult> FailedSteps => Steps.Where(step => !step.Success).ToList();
+    public bool HasFailedSteps => Steps.Any(step => !step.Success);
     public bool HasActionError => actionError;
     public bool IsApplying => applying;
     public bool IsOptimizing => optimizing || applying;
@@ -117,7 +121,8 @@ public sealed class FortniteViewModel : ObservableObject
 
     private async Task ApplySelectedAsync(CancellationToken token, bool simple)
     {
-        var optionIds = Options.Where(o => o.Option.Available && o.Selected).Select(o => o.Option.Id).ToArray();
+        var selectedIds = Options.Where(o => o.Option.Available && o.Selected).Select(o => o.Option.Id).ToHashSet();
+        var optionIds = preview?.Options.Where(option => selectedIds.Contains(option.Id)).Select(option => option.Id).ToArray() ?? [];
         if (!HasPreview || optionIds.Length == 0) return;
         Steps.Clear(); applying = true; completedSteps = 0; totalSteps = optionIds.Length;
         ProgressTitle = "Preparando los ajustes seleccionados"; SetError(false); Changed(null);
@@ -169,7 +174,8 @@ public sealed class FortniteViewModel : ObservableObject
         var result = await service.PreviewAsync(manualDirectory, token);
         token.ThrowIfCancellationRequested(); preview = result;
         Options.Clear();
-        foreach (var option in result.Options)
+        foreach (var option in result.Options.OrderBy(option => option.Id switch
+        { "fortnite-settings" => 0, "gpu-preference" => 1, "power-mode" => 2, "power" => 3, "background-apps" => 4, "browser-background" => 5, "visual-effects" => 6, _ => 7 }))
         {
             var row = new FortniteOptionChoice(option) { Selected = option.Available && (selected?.GetValueOrDefault(option.Id, option.SelectedByDefault) ?? option.SelectedByDefault) };
             row.PropertyChanged += (_, _) => { Changed(nameof(SelectionSummary)); CommandManager.InvalidateRequerySuggested(); };
@@ -188,5 +194,5 @@ public sealed class FortniteOptionChoice(FortniteProfileOption option) : Observa
 {
     private bool selected;
     public FortniteProfileOption Option { get; } = option;
-    public bool Selected { get => selected; set => Set(ref selected, value && Option.Available); }
+    public bool Selected { get => selected; set { if (Set(ref selected, value && Option.Available)) CommandManager.InvalidateRequerySuggested(); } }
 }

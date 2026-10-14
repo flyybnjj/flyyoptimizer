@@ -35,11 +35,11 @@ Los avisos originales y metadatos de los paquetes se incluyen en `licenses/`. El
 
 No se modificó el código de estas dependencias. Los metadatos `.nuspec` incluidos identifican también las revisiones de código fuente de los paquetes cuando el autor las proporciona.
 
-## PresentMon incluido
+## PresentMon — referencia histórica de desarrollo
 
 - Proyecto: https://github.com/GameTechDev/PresentMon
 - Consola standalone x64 oficial 2.6.0, con licencia MIT incluida en `licenses/PresentMon-2.6.0-MIT.txt` y procedencia/hash en `assets/PresentMon/` del proyecto.
-- La distribución incluye `tools/PresentMon/PresentMon.exe`; FlyyOptimizer comprueba su hash y lo invoca directamente, sin servicio, MSI ni utilidades que el usuario deba instalar aparte. Las DLL importadas por la consola pertenecen a Windows.
+- El código histórico y las pruebas de captura permanecen en el repositorio. La distribución actual no incluye el ejecutable ni ofrece captura o comparación de sesiones.
 - SHA-256 fijado: `B2A706BC6AD475749E3B7E3409263AA1E6906D45BDCF993F6DBC0F660188F1AF`. Binario firmado por Intel, obtenido de la release oficial.
 
 ## Referencias de diseño

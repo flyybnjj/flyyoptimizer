@@ -25,7 +25,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string status = "Listo para analizar. El diagnóstico no modifica tu equipo.";
     private string error = "";
     private string driverSearch = "";
-    private string updateStatus = "Consulta las ofertas de Windows Update cuando lo necesites.";
+    private string updateStatus = "Busca actualizaciones oficiales para los drivers de este PC.";
+    private bool updateQuerySucceeded;
     private string collectorStatus = "El colector gaming viene incluido con FlyyOptimizer.";
     private bool hasBundledCollector;
     private string processId = "";
@@ -67,6 +68,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         CancelCommand = new RelayCommand(_ => { Status = "Cancelando: esperando que termine la operación…"; lifetime.Cancel(); CommandManager.InvalidateRequerySuggested(); }, _ => IsBusy && lifetime.CanCancel);
         ExportCommand = Command(ExportAsync, _ => CanStartOperation && HasSnapshot);
         SearchUpdatesCommand = Command(_ => SearchUpdatesAsync(), _ => CanStartOperation);
+        DownloadUpdatesCommand = Command(_ => DownloadUpdatesAsync(), _ => CanStartOperation && HasDownloadableUpdates);
         OpenFindingCommand = Command(OpenFindingAsync, parameter => parameter is FindingRow { HasAction: true } && CanStartOperation);
         OpenGuideCommand = Command(OpenGuideAsync, _ => CanStartOperation);
         OpenManufacturerCommand = Command(OpenManufacturerAsync, parameter => CanStartOperation && parameter is DriverInfo d && ManufacturerUrl(d) is not null);
@@ -89,6 +91,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand CancelCommand { get; }
     public ICommand ExportCommand { get; }
     public ICommand SearchUpdatesCommand { get; }
+    public ICommand DownloadUpdatesCommand { get; }
     public ICommand OpenFindingCommand { get; }
     public ICommand OpenGuideCommand { get; }
     public ICommand OpenManufacturerCommand { get; }
@@ -136,7 +139,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public bool HasError => !string.IsNullOrWhiteSpace(Error);
     public bool HasReports => Reports.Count > 0;
     public bool HasActions => Actions.Count > 0;
-    public bool HasUpdates => Updates.Count > 0;
+    public bool HasUpdates => updateQuerySucceeded && Updates.Count > 0;
+    public bool HasDownloadableUpdates => updateQuerySucceeded && Updates.Any(update => !update.Downloaded && update.EulaAccepted && Guid.TryParse(update.UpdateId, out _) && update.Revision > 0);
+    public string AvailableUpdatesLabel => $"Ver actualizaciones disponibles ({Updates.Count})";
+    public string DownloadUpdatesLabel => HasUpdates && Updates.All(update => update.Downloaded) ? "Descargadas" : "Descargar";
+    public bool DownloadNeedsPermission => HasDownloadableUpdates && !processElevated;
     public bool HasOemPackages => OemPackages.Count > 0;
     public bool HasOemPortal => !string.IsNullOrWhiteSpace(oemResult?.SupportUrl);
     public bool CanSearchSerial => HasSnapshot && snapshotIsCurrent && !string.IsNullOrWhiteSpace(snapshot?.Machine.Manufacturer);
@@ -201,7 +208,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         1 => "Inventario y recursos observados durante el análisis.",
         2 => "Revisa versiones, firmas e incidencias de tus dispositivos.",
         3 => "Aplica ajustes concretos y conserva su estado anterior para deshacerlos.",
-        4 => "Ajusta Windows para jugar y mide la fluidez con el colector incluido.",
+        4 => "Prepara Windows y Fortnite para jugar. Aplica un perfil o elige tus ajustes.",
         5 => "Tus observaciones y las guías abiertas, guardadas en este equipo.",
         _ => "Entiende qué está pasando antes de cambiar algo."
     };
@@ -330,7 +337,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Drivers.Clear();
         foreach (var driver in result.Drivers.OrderBy(d => d.DeviceName)) Drivers.Add(driver);
         DriversView.Refresh();
-        Updates.Clear();
+        updateQuerySucceeded = false; Updates.Clear();
         OemPackages.Clear(); oemResult = null; SelectedOemPackage = null; OemSearch = "";
         OemStatus = isCurrent ? "Buscando el modelo en la fuente oficial…" : "Observación guardada: busca por modelo si necesitas su catálogo. La serie no se consulta desde el historial.";
         if (isCurrent) SetCaptureProcesses(result.Processes);
@@ -340,7 +347,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             SetCaptureProcesses([]);
             ProcessId = "";
         }
-        UpdateStatus = "Consulta las ofertas de Windows Update para el equipo actual. El inventario guardado no incluye ofertas de actualizaciones.";
+        UpdateStatus = "Busca actualizaciones oficiales para los drivers de este PC.";
         Changed(null);
         CommandManager.InvalidateRequerySuggested();
     }
@@ -376,19 +383,50 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     internal async Task SearchUpdatesAsync()
     {
-        UpdateStatus = "Buscando ofertas de drivers en Windows Update…";
-        Updates.Clear(); Changed(nameof(HasUpdates));
+        if (!CanStartOperation) return;
+        UpdateStatus = "Buscando actualizaciones…";
+        updateQuerySucceeded = false; Updates.Clear(); Changed(null);
         var completed = await RunBusyAsync(UpdateStatus, async token =>
         {
             var result = await services.FindUpdates(token);
             token.ThrowIfCancellationRequested();
+            updateQuerySucceeded = result.Success;
             foreach (var update in result.Updates) Updates.Add(update);
-            UpdateStatus = result.Success ? result.Updates.Count == 0 ? "Windows Update no ofrece drivers en esta consulta. El fabricante puede tener otras versiones." : $"{result.Updates.Count} ofertas encontradas. Revisa su instalación en Windows Update." : $"Consulta no disponible: {result.Message}";
+            UpdateStatus = result.Success ? result.Updates.Count == 0 ? "No hay actualizaciones de drivers disponibles en Windows Update." : result.Updates.Count == 1 ? "1 actualización de drivers disponible." : $"{result.Updates.Count} actualizaciones de drivers disponibles." : $"Consulta no disponible: {result.Message}";
             if (!result.Success) Error = result.Message;
             Status = result.Success ? "Consulta de Windows Update terminada." : "No se pudo consultar Windows Update.";
-            Changed(nameof(HasUpdates));
+            Changed(null);
         });
         if (!completed) UpdateStatus = "La consulta no se completó. Puedes volver a buscar.";
+    }
+
+    internal Task<bool> DownloadUpdatesAsync()
+    {
+        if (!CanStartOperation || !HasDownloadableUpdates) return Task.FromResult(false);
+        if (!processElevated) return RunBusyAsync("Solicitando permiso para descargar…", _ =>
+        {
+            try { services.OpenElevatedForUpdates(); UpdateStatus = "Flyy se abrió en Drivers con permisos. Busca las actualizaciones y pulsa Descargar en esa ventana."; Status = "Ventana de descarga abierta."; }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            { UpdateStatus = "Permiso cancelado. Puedes pulsar Descargar para volver a intentarlo."; Status = "Descarga cancelada; no se descargó ningún driver."; }
+            return Task.CompletedTask;
+        });
+        var selected = Updates.Where(update => !update.Downloaded && update.EulaAccepted && Guid.TryParse(update.UpdateId, out _) && update.Revision > 0).ToArray();
+        return RunBusyAsync("Descargando actualizaciones…", async token =>
+        {
+            UpdateStatus = "Descargando actualizaciones… Puedes cancelar desde la barra superior.";
+            try
+            {
+                var result = await services.DownloadDriverUpdates(selected, token);
+                token.ThrowIfCancellationRequested();
+                for (var index = 0; index < Updates.Count; index++)
+                    if (result.DownloadedIds.Contains(Updates[index].UpdateId, StringComparer.OrdinalIgnoreCase)) Updates[index] = Updates[index] with { Downloaded = true };
+                UpdateStatus = result.Message;
+                Status = result.Success ? "Descarga completada." : "La descarga no se completó.";
+                if (!result.Success) Error = result.Message;
+            }
+            catch (OperationCanceledException) { UpdateStatus = "Descarga cancelada. Puedes volver a buscar o reintentar."; throw; }
+            finally { Changed(null); CommandManager.InvalidateRequerySuggested(); }
+        });
     }
 
     internal async Task<bool> SearchOemAsync(bool useSerial)
