@@ -65,7 +65,10 @@ public sealed class ReportStore
             var result = JsonSerializer.Deserialize<SystemSnapshot>(text, JsonOptions);
             if (result is null || result.Id == Guid.Empty || result.Machine is null || result.Samples is null ||
                 result.Drives is null || result.Drivers is null || result.Startup is null || result.Processes is null ||
-                result.Networks is null || result.Notes is null)
+                result.Networks is null || result.Notes is null || result.Samples.Any(s => s is null) ||
+                result.Drives.Any(s => s is null) || result.Drivers.Any(s => s is null) ||
+                result.Startup.Any(s => s is null) || result.Processes.Any(s => s is null) ||
+                result.Networks.Any(s => s is null) || result.Notes.Any(s => s is null))
                 throw new InvalidDataException("El informe está incompleto o dañado.");
             return result;
         }
@@ -93,8 +96,10 @@ public sealed class ReportStore
         if (!File.Exists(path)) return [];
         try
         {
-            return JsonSerializer.Deserialize<List<ActionRecord>>(await File.ReadAllTextAsync(path), JsonOptions)
-                ?? throw new InvalidDataException("El registro de guías está incompleto.");
+            var records = JsonSerializer.Deserialize<List<ActionRecord>>(await File.ReadAllTextAsync(path), JsonOptions);
+            if (records is null || records.Any(record => record is null))
+                throw new InvalidDataException("El registro de guías está incompleto. Se conservó el archivo existente.");
+            return records;
         }
         catch (JsonException ex)
         {

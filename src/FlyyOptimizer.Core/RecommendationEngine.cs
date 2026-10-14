@@ -54,7 +54,7 @@ public static class RecommendationEngine
                     Severity.Suggestion, "Drivers", ActionKind.OpenWindowsUpdate));
         }
 
-        if (snapshot.Machine.PowerPlanGuid.Equals("a1841308-3541-4fab-bc81-f71556f20b4a", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(snapshot.Machine.PowerPlanGuid, "a1841308-3541-4fab-bc81-f71556f20b4a", StringComparison.OrdinalIgnoreCase))
             findings.Add(new("power-saving", "El plan de energía prioriza el ahorro",
                 "Puedes revisar el equilibrio entre rendimiento, temperatura y autonomía. Un modo de mayor rendimiento puede consumir más batería y elevar la temperatura.",
                 $"Plan activo: {Known(snapshot.Machine.PowerPlanName)}. " +

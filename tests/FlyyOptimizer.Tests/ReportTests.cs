@@ -73,6 +73,37 @@ public sealed class ReportTests : IDisposable
     }
 
     [Fact]
+    public async Task StructurallyDamagedReportCannotCrashDownstreamAnalysis()
+    {
+        Directory.CreateDirectory(directory);
+        var file = Path.Combine(directory, "null-row.json");
+        await File.WriteAllTextAsync(file, "{\"Id\":\"aac1b6f7-294f-463d-b8d5-e36ad19b77ce\",\"CapturedAt\":\"2026-01-01T12:00:00Z\",\"Samples\":[null]}");
+        await Assert.ThrowsAsync<InvalidDataException>(() => new ReportStore(directory).LoadAsync(file));
+    }
+
+    [Fact]
+    public async Task NullActionRecordIsReportedAsCorruptionAndPreserved()
+    {
+        Directory.CreateDirectory(directory);
+        var file = Path.Combine(directory, "actions.json");
+        await File.WriteAllTextAsync(file, "[null]");
+        await Assert.ThrowsAsync<InvalidDataException>(() => new ReportStore(directory).RecordActionAsync(new(DateTimeOffset.Now, "one", "Guide", "Guía abierta")));
+        Assert.Equal("[null]", await File.ReadAllTextAsync(file));
+    }
+
+    [Fact]
+    public async Task UnknownPowerPlanInOneReportDoesNotBreakEntireHistory()
+    {
+        var store = new ReportStore(directory);
+        await store.SaveAsync(new() { Machine = new() { CpuName = "Known", PowerPlanGuid = "" } });
+        await store.SaveAsync(new() { Machine = new() { CpuName = "Partial", PowerPlanGuid = null! } });
+        var history = await store.ListAsync();
+        Assert.Equal(2, history.Count);
+        Assert.Contains(history, report => report.CpuName == "Known");
+        Assert.Contains(history, report => report.CpuName == "Partial");
+    }
+
+    [Fact]
     public void MarkdownIncludesMeasuredEvidenceAndNamesUnknownMetrics()
     {
         var snapshot = new SystemSnapshot { Machine = new() { CpuName = "Test CPU" }, Samples = [new() { MemoryPercent = 42 }] };

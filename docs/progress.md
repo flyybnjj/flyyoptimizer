@@ -5,3 +5,4 @@
 - Contratos compartidos: Core; propietarios separados para Windows, Gaming y App.
 - Ejecución en checkout dedicado vacío, rama codex/windows-mvp.
 - Core: 14 pruebas de reglas RED→GREEN; 9 pruebas de informes/comparación RED→GREEN; suite 23/23.
+- Revisión: informe con PowerPlanGuid=null reproducía fallo del historial; regresión RED→GREEN con comparación null-safe. Core 26/26.
