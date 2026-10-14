@@ -16,9 +16,9 @@
     <ProjectReference Include="../FlyyOptimizer.Gaming/FlyyOptimizer.Gaming.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="../../README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../README.md')" />
-    <Content Include="../../THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('../../THIRD-PARTY-NOTICES.md')" />
-    <Content Include="../../licenses/**/*" Link="licenses/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="../../assets/WinUtil/*" Link="tools/WinUtil/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../README.md" Link="Archivos/README.md" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Condition="Exists('../../README.md')" />
+    <Content Include="../../THIRD-PARTY-NOTICES.md" Link="Archivos/THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Condition="Exists('../../THIRD-PARTY-NOTICES.md')" />
+    <Content Include="../../licenses/**/*" Link="Archivos/licenses/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <Content Include="../../assets/WinUtil/*" Link="Archivos/tools/WinUtil/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>

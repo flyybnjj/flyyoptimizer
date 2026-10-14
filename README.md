@@ -6,7 +6,15 @@ La interfaz usa superficies claras, tipografía Segoe UI Variable y transiciones
 
 ## Abrir la app
 
-En la distribución portable, extrae toda la carpeta y abre `FlyyOptimizer.exe`. El paquete incluye .NET; el usuario no necesita instalar SDK, WinUtil, Optimizer ni utilidades de captura aparte. Conserva los DLL, la carpeta `tools` y las licencias junto al ejecutable.
+En la distribución portable, extrae el ZIP y abre `FlyyOptimizer.exe`. Solo verás el ejecutable con el logo de Flyy y una carpeta `Archivos` con los recursos, instrucciones y licencias. Conserva ambos al mover o compartir la app.
+
+```text
+FlyyOptimizer-win-x64/
+├── FlyyOptimizer.exe
+└── Archivos/
+```
+
+El ejecutable incluye .NET y las bibliotecas necesarias; el usuario no necesita instalar SDK, WinUtil, Optimizer ni utilidades aparte. Las bibliotecas nativas se extraen automáticamente en la caché temporal de .NET al arrancar, sin llenar la carpeta portable. La publicación usa [el formato de archivo único de Microsoft](https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file/overview) y conserva el arranque directo y la elevación desde el mismo ejecutable.
 
 Desde el proyecto:
 
@@ -74,6 +82,8 @@ dotnet run --project src/FlyyOptimizer.App -- --smoke-test "$env:TEMP\flyy-smoke
 ```
 
 Estos comandos no aplican optimizaciones al equipo. Los modos `--render <png>` y `--smoke-test <directorio>` permiten revisar el render real de WPF. El modo de prueba usa un historial aislado dentro del directorio de salida.
+
+Después de compilar, `./scripts/verify-portable.ps1` comprueba la estructura de dos elementos, las licencias y el recurso fijado; compara todos los archivos del ZIP con la publicación y ejecuta el ZIP extraído desde una ruta con espacios, sin búsqueda del SDK y con un directorio de trabajo diferente. Verifica el análisis, la interfaz y los contratos de elevación sin aplicar optimizaciones, descargar drivers ni abrir UAC.
 
 ## Referencias
 

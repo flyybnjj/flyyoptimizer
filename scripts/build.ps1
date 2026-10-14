@@ -19,12 +19,22 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'La compilación falló.' }
     if (-not $NoPublish) {
         $taskOutput = Join-Path $taskRoot 'artifacts\FlyyOptimizer-win-x64'
-        & $taskDotnetPath publish src/FlyyOptimizer.App/FlyyOptimizer.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $taskOutput
+        $taskArtifacts = [System.IO.Path]::GetFullPath((Join-Path $taskRoot 'artifacts'))
+        $taskStaging = Join-Path $taskArtifacts ('portable-staging-' + [Guid]::NewGuid().ToString('N'))
+        & $taskDotnetPath publish src/FlyyOptimizer.App/FlyyOptimizer.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded -o $taskStaging
         if ($LASTEXITCODE -ne 0) { throw 'La publicación falló.' }
-        foreach ($taskLegacyFile in @('tools\PresentMon\PresentMon.exe','tools\PresentMon\provenance.json')) {
-            $taskLegacyPath = Join-Path $taskOutput $taskLegacyFile
-            if (Test-Path -LiteralPath $taskLegacyPath -PathType Leaf) { Remove-Item -LiteralPath $taskLegacyPath }
+        $taskItems = @(Get-ChildItem -LiteralPath $taskStaging -Force)
+        if ($taskItems.Count -ne 2 -or -not (Test-Path -LiteralPath (Join-Path $taskStaging 'FlyyOptimizer.exe') -PathType Leaf) -or -not (Test-Path -LiteralPath (Join-Path $taskStaging 'Archivos') -PathType Container)) {
+            throw "La publicación no produjo la estructura esperada. Revisa $taskStaging."
         }
+        # Only replace our own build output, after a fresh publish has succeeded.
+        $taskOutput = [System.IO.Path]::GetFullPath($taskOutput)
+        if ((Split-Path -Parent $taskOutput) -ne $taskArtifacts -or (Split-Path -Leaf $taskOutput) -ne 'FlyyOptimizer-win-x64') { throw 'La salida está fuera del directorio de artifacts esperado.' }
+        if (Test-Path -LiteralPath $taskOutput) {
+            if ((Get-Item -LiteralPath $taskOutput -Force).Attributes -band [System.IO.FileAttributes]::ReparsePoint) { throw 'La salida no puede ser un enlace.' }
+            Remove-Item -LiteralPath $taskOutput -Recurse -Force
+        }
+        Move-Item -LiteralPath $taskStaging -Destination $taskOutput
         $taskZip = Join-Path $taskRoot 'artifacts\FlyyOptimizer-win-x64.zip'
         Compress-Archive -LiteralPath $taskOutput -DestinationPath $taskZip -Force
         Get-FileHash -LiteralPath $taskZip -Algorithm SHA256 | Format-List
