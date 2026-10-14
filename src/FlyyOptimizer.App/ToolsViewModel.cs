@@ -93,7 +93,7 @@ public sealed class ToolsViewModel : ObservableObject
         }
         PowerSchemes.Clear(); foreach (var scheme in overview.PowerSchemes) PowerSchemes.Add(scheme);
         StartupEntries.Clear(); foreach (var entry in overview.StartupEntries) StartupEntries.Add(new(entry));
-        Changes.Clear(); foreach (var change in overview.Changes.OrderByDescending(c => c.AppliedAt)) Changes.Add(change);
+        Changes.Clear(); foreach (var change in overview.Changes.OrderByDescending(c => c.AppliedAt)) Changes.Add(change with { Title = change.Title.Replace("WinUtil · ", "", StringComparison.Ordinal) });
         SelectedPowerScheme = PowerSchemes.FirstOrDefault(p => p.Id == powerId) ?? PowerSchemes.FirstOrDefault(p => p.Active);
         SelectedStartup = StartupEntries.FirstOrDefault(p => p.Entry.Id == startupId);
         SelectedChange = Changes.FirstOrDefault(c => c.Id == changeId);

@@ -47,6 +47,8 @@ public sealed class FortniteProfileService : IFortniteProfileService
             new("gpu-preference", "Preferir GPU de alto rendimiento para Fortnite", "Guarda una preferencia gráfica para el ejecutable detectado. Windows decide la GPU efectiva; vuelve a abrir el juego.", gpuAvailable, gpuAvailable, !installation.Installed ? "Primero detecta Fortnite" : !ac ? "Disponible con alimentación de corriente" : gpu == true ? "Ya preferida" : "Preferencia por aplicación; requiere reiniciar el juego"),
             new("fortnite-settings", "Calidad competitiva baja de Fortnite", "Reduce las claves de calidad existentes, desactiva VSync y motion blur y muestra FPS. Conserva resolución, límite FPS, renderizador y controles.", configAvailable, configAvailable, !installation.Installed ? "Primero detecta Fortnite" : installation.IsRunning ? "Cierra Fortnite antes de editar" : !configAvailable ? installation.Message : "Cambiar calidad visual; respaldo exacto disponible")
         };
+        foreach (var group in PerformanceTweaks.Groups)
+            options.Add(new(group.Id, group.Title, group.Description, native is NativeOptimizationService, native is NativeOptimizationService, "Preferencia reversible; algunas requieren reiniciar la app o sesión"));
         preview = new(installation, options, windows.Changes.Concat(gameChanges).OrderByDescending(x => x.AppliedAt).ToList(),
             "Elige los pasos y pulsa Optimizar PC. El rendimiento depende del hardware; compara una misma partida antes y después.");
         return preview;
@@ -56,7 +58,7 @@ public sealed class FortniteProfileService : IFortniteProfileService
         IProgress<FortniteProfileProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         var current = preview;
-        if (current is null || optionIds.Count == 0 || optionIds.Count > 6 || optionIds.Distinct().Count() != optionIds.Count ||
+        if (current is null || optionIds.Count == 0 || optionIds.Count > current.Options.Count || optionIds.Distinct().Count() != optionIds.Count ||
             optionIds.Any(id => !current.Options.Any(option => option.Id == id)))
             return new([new("profile", "Perfil de Fortnite", false, false, "Detecta y revisa un perfil válido antes de optimizar. No se aplicaron cambios.")], false, "No se completaron cambios.");
         var results = new List<FortniteProfileStepResult>();
@@ -80,7 +82,7 @@ public sealed class FortniteProfileService : IFortniteProfileService
                         native is NativeOptimizationService nativeGpu ? await nativeGpu.SetGameGpuPreferenceCheckedAsync(current.Installation.ExecutablePath!, () => onAcPower() == true, cancellationToken) :
                         await setGpu(current.Installation.ExecutablePath!, cancellationToken),
                     "fortnite-settings" => await game.ApplyCompetitiveSettingsAsync(cancellationToken),
-                    _ => throw new InvalidOperationException("Paso no disponible.")
+                    _ => native is NativeOptimizationService preferences ? await preferences.ApplyPerformanceTweakAsync(step.Id, cancellationToken) : throw new InvalidOperationException("Paso no disponible.")
                 };
                 results.Add(new(step.Id, step.Title, outcome.Success, outcome.Changed, outcome.Message));
             }

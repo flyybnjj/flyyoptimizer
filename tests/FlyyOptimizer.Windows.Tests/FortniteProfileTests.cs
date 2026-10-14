@@ -73,7 +73,7 @@ public sealed class FortniteProfileTests
         using var fixture = new ProfileFixture();
         var preview = await fixture.Profile.PreviewAsync();
         Assert.True(preview.Installation.Installed);
-        Assert.Equal(6, preview.Options.Count);
+        Assert.Equal(11, preview.Options.Count);
         Assert.False(preview.Options.Single(x => x.Id == "animations").SelectedByDefault);
         Assert.Empty((await fixture.Native.InspectAsync()).Changes);
         Assert.Equal(0, fixture.Game.Applied);

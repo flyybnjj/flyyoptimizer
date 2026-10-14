@@ -12,9 +12,11 @@ public sealed class FortniteViewModel : ObservableObject
     private readonly Func<bool> canRun;
     private readonly Func<CancellationToken, Task> refreshTools;
     private readonly Func<string?> chooseFolder;
+    private readonly Func<bool> confirmOptimization;
     private FortniteProfilePreview? preview;
     private string? manualDirectory;
-    private string status = "Detecta Fortnite y revisa qué ajustes quieres aplicar antes de optimizar.";
+    private string status = "";
+    private bool optimizing;
     private string progressTitle = "";
     private int completedSteps;
     private int totalSteps;
@@ -25,10 +27,12 @@ public sealed class FortniteViewModel : ObservableObject
 
     internal FortniteViewModel(IFortniteProfileService service,
         Func<string, Func<CancellationToken, Task>, Task<bool>> run, Func<bool> canRun,
-        Func<CancellationToken, Task> refreshTools, Func<string?> chooseFolder)
+        Func<CancellationToken, Task> refreshTools, Func<string?> chooseFolder, Func<bool> confirmOptimization)
     {
         this.service = service; this.run = run; this.canRun = canRun;
         this.refreshTools = refreshTools; this.chooseFolder = chooseFolder;
+        this.confirmOptimization = confirmOptimization;
+        OptimizeCommand = Command(_ => OptimizeAsync());
         DetectCommand = Command(_ => DetectAsync());
         ChooseFolderCommand = Command(_ => ChooseFolderAsync());
         ApplyCommand = Command(_ => ApplyAsync(), _ => HasPreview && Options.Any(o => o.Option.Available && o.Selected));
@@ -39,6 +43,7 @@ public sealed class FortniteViewModel : ObservableObject
         new AsyncCommand(work, p => canRun() && (extra?.Invoke(p) ?? true), ex => { Status = ex.Message; SetError(true); });
 
     public ICommand DetectCommand { get; }
+    public ICommand OptimizeCommand { get; }
     public ICommand ChooseFolderCommand { get; }
     public ICommand ApplyCommand { get; }
     public ICommand UndoCommand { get; }
@@ -55,7 +60,9 @@ public sealed class FortniteViewModel : ObservableObject
     public bool HasResults => Steps.Count > 0;
     public bool HasActionError => actionError;
     public bool IsApplying => applying;
-    public string Status { get => status; private set => Set(ref status, value); }
+    public bool IsOptimizing => optimizing || applying;
+    public bool HasStatus => !string.IsNullOrWhiteSpace(Status);
+    public string Status { get => status; private set { if (Set(ref status, value)) Changed(nameof(HasStatus)); } }
     public string ProgressTitle { get => progressTitle; private set => Set(ref progressTitle, value); }
     public string ProgressLabel => $"{completedSteps}/{totalSteps} pasos terminados";
     public double ProgressPercent => totalSteps > 0 ? 100d * completedSteps / totalSteps : 0;
@@ -77,13 +84,38 @@ public sealed class FortniteViewModel : ObservableObject
         try
         {
             await RefreshPreviewAsync(token, false);
-            Status = preview!.Message;
+            Status = "";
+            Changed(nameof(Status));
         }
         catch (OperationCanceledException) { Status = "Detección cancelada. Vuelve a detectar Fortnite antes de optimizar."; SetError(true); throw; }
         catch (Exception ex) { Status = $"No se pudo detectar Fortnite: {ex.Message}"; SetError(true); throw; }
     });
 
-    internal Task<bool> ApplyAsync() => run("Optimizando PC para Fortnite…", async token =>
+    internal async Task<bool> OptimizeAsync()
+    {
+        if (!canRun() || !confirmOptimization()) return false;
+        return await run("Optimizando PC…", async token =>
+        {
+            optimizing = true; Changed(nameof(IsOptimizing)); Status = "Optimizando PC…"; SetError(false);
+            try
+            {
+                await RefreshPreviewAsync(token, false);
+                if (IsGameRunning)
+                { Status = "Cierra Fortnite y vuelve a pulsar Optimizar PC."; SetError(true); return; }
+                if (!Options.Any(option => option.Option.Available && option.Selected))
+                { Status = "No se encontraron ajustes disponibles para optimizar."; SetError(true); return; }
+                await ApplySelectedAsync(token, true);
+                if (!HasActionError) Status = "PC listo.";
+            }
+            catch (OperationCanceledException) { Status = "Optimización cancelada."; SetError(true); throw; }
+            catch (Exception) { Status = "No se pudo completar la optimización. Vuelve a intentarlo."; SetError(true); }
+            finally { optimizing = false; Changed(nameof(IsOptimizing)); }
+        });
+    }
+
+    internal Task<bool> ApplyAsync() => run("Optimizando PC para Fortnite…", token => ApplySelectedAsync(token, false));
+
+    private async Task ApplySelectedAsync(CancellationToken token, bool simple)
     {
         var optionIds = Options.Where(o => o.Option.Available && o.Selected).Select(o => o.Option.Id).ToArray();
         if (!HasPreview || optionIds.Length == 0) return;
@@ -100,7 +132,10 @@ public sealed class FortniteViewModel : ObservableObject
         {
             var result = await service.ApplyAsync(optionIds, progress, token);
             foreach (var step in result.Steps) Steps.Add(step);
-            Status = result.Message; SetError(result.Cancelled || result.Steps.Any(s => !s.Success));
+            var incomplete = result.Cancelled || result.Steps.Any(s => !s.Success) ||
+                simple && (result.Steps.Count != optionIds.Length || !result.Steps.Select(step => step.Id).ToHashSet().SetEquals(optionIds));
+            SetError(incomplete);
+            Status = simple ? result.Cancelled ? "Optimización cancelada." : incomplete ? "No se pudo completar la optimización. Vuelve a intentarlo." : "Finalizando…" : result.Message;
         }
         catch (OperationCanceledException) { Status = "Perfil cancelado. Los cambios que se alcanzaron a guardar siguen disponibles para restaurarlos."; SetError(true); throw; }
         catch (Exception ex) { Status = $"No se completó el perfil: {ex.Message}"; SetError(true); throw; }
@@ -109,7 +144,7 @@ public sealed class FortniteViewModel : ObservableObject
             applying = false; progressGeneration++; Changed(null);
             await RefreshAfterChangeAsync();
         }
-    });
+    }
 
     internal Task<bool> UndoAsync() => run("Restaurando el ajuste seleccionado de Fortnite…", async token =>
     {
@@ -141,7 +176,7 @@ public sealed class FortniteViewModel : ObservableObject
             Options.Add(row);
         }
         var previousId = SelectedChange?.Id;
-        Changes.Clear(); foreach (var change in result.Changes.OrderByDescending(c => c.AppliedAt)) Changes.Add(change);
+        Changes.Clear(); foreach (var change in result.Changes.OrderByDescending(c => c.AppliedAt)) Changes.Add(change with { Title = change.Title.Replace("WinUtil · ", "", StringComparison.Ordinal) });
         SelectedChange = Changes.FirstOrDefault(c => c.Id == previousId);
         Changed(null);
     }

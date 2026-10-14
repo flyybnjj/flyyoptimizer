@@ -87,6 +87,13 @@ public sealed class NativeOptimizationService : INativeOptimizationService
             WinUtilGameMode.Read().Select(value => RegistryChange(OptimizationTargets.GameBar, value.Name,
                 RegistryValueState.Dword(value.Value))).ToList()), cancellationToken);
 
+    public Task<OptimizationOutcome> ApplyPerformanceTweakAsync(string id, CancellationToken cancellationToken = default) =>
+        ExecuteAsync(_ =>
+        {
+            var group = PerformanceTweaks.Find(id);
+            return NewEntry(id, group.Title, group.Values.Select(value => RegistryChange(value.Key, value.Name, RegistryValueState.Dword(value.Target))).ToList());
+        }, cancellationToken);
+
     public Task<OptimizationOutcome> SetGameGpuPreferenceAsync(string executablePath, CancellationToken cancellationToken = default) =>
         SetGameGpuPreferenceCheckedAsync(executablePath, null, cancellationToken);
 

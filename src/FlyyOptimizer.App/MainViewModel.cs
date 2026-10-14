@@ -51,8 +51,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         this.services = services;
         processElevated = services.IsElevated();
         Tools = new(services.CreateNativeTools(), RunBusyAsync, () => CanStartOperation);
-        Fortnite = new(services.CreateFortniteProfile(), RunBusyAsync, () => CanStartOperation, Tools.RefreshStateAsync, services.ChooseFortniteFolder);
-        Fortnite.PropertyChanged += (_, change) => { if (change.PropertyName == nameof(Fortnite.Status)) Status = Fortnite.Status; };
+        Fortnite = new(services.CreateFortniteProfile(), RunBusyAsync, () => CanStartOperation, Tools.RefreshStateAsync, services.ChooseFortniteFolder, services.ConfirmOptimization);
+        Fortnite.PropertyChanged += (_, change) => { if (change.PropertyName == nameof(Fortnite.Status)) Status = string.IsNullOrEmpty(Fortnite.Status) ? "Listo para optimizar." : Fortnite.Status; };
         Tools.PropertyChanged += (_, change) =>
         {
             if (change.PropertyName == nameof(Tools.Status)) Status = Tools.Status;

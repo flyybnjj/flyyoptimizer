@@ -36,6 +36,8 @@ internal static class InteractionSmokeChecks
         var cancelScan = true;
         var native = new FixtureOptimizationService();
         var fortnite = new FixtureFortniteProfileService(directory);
+        var approveOptimization = false;
+        var optimizationPrompts = 0;
         string? capturedExecutable = null;
         var denyCapture = false;
         var elevationRequests = 0;
@@ -45,6 +47,7 @@ internal static class InteractionSmokeChecks
         {
             CreateNativeTools = () => native,
             CreateFortniteProfile = () => fortnite,
+            ConfirmOptimization = () => { optimizationPrompts++; return approveOptimization; },
             ChooseFortniteFolder = () => Path.Combine(directory, "Manually selected Fortnite fixture"),
             ResolvePresentMon = () => Environment.ProcessPath!,
             CaptureDirectory = Path.Combine(directory, "fixture-captures"),
@@ -83,6 +86,24 @@ internal static class InteractionSmokeChecks
         };
         using var model = new MainViewModel(Path.Combine(directory, "fixture-history"), services);
         var tools = model.Tools;
+        var simpleFortnite = new FixtureFortniteProfileService(Path.Combine(directory, "simple"));
+        using var simpleModel = new MainViewModel(Path.Combine(directory, "simple-reports"), new ViewModelServices
+        {
+            CreateNativeTools = () => new FixtureOptimizationService(), CreateFortniteProfile = () => simpleFortnite,
+            ConfirmOptimization = () => { optimizationPrompts++; return approveOptimization; },
+            ResolvePresentMon = () => Environment.ProcessPath!, IsElevated = () => false,
+            Open = (_, _) => throw new InvalidOperationException("Simple optimization must stay in Flyy")
+        });
+        var optimizeCommand = simpleModel.Fortnite.GetType().GetProperty("OptimizeCommand")?.GetValue(simpleModel.Fortnite) as ICommand;
+        Check(optimizeCommand is not null && optimizeCommand.CanExecute(null), "Simple optimization button is available without exposing a preview or selection form");
+        await ExecuteAsync(optimizeCommand!);
+        Check(optimizationPrompts == 1 && simpleFortnite.ApplyCalls == 0 && !simpleModel.Fortnite.HasPreview, "Declining optimization makes no changes and does not prepare a hidden profile");
+        approveOptimization = true;
+        await ExecuteAsync(optimizeCommand!);
+        Check(optimizationPrompts == 2 && simpleFortnite.AppliedIds.SequenceEqual(["winutil-game-mode", "fortnite-settings"]) && simpleModel.Fortnite.Status == "PC listo." && !simpleModel.Fortnite.HasActionError, "Confirmed optimization prepares applicable defaults automatically and reports ready after verified completion");
+        simpleFortnite.PartialResultNext = true;
+        await ExecuteAsync(optimizeCommand!);
+        Check(simpleModel.Fortnite.HasActionError && simpleModel.Fortnite.Status != "PC listo.", "A partial failure never reports PC ready in the simple flow");
         Check(!model.Fortnite.HasPreview && !model.Fortnite.ApplyCommand.CanExecute(null) && fortnite.ApplyCalls == 0, "Fortnite optimization requires reviewing detected installation and selected changes before any mutation");
         await model.Fortnite.DetectAsync();
         Check(model.Fortnite.HasPreview && model.Fortnite.IsInstalled && fortnite.ApplyCalls == 0 && model.Fortnite.Options.Count == 4 && !model.Fortnite.Options.Single(o => o.Option.Id == "gpu-preference").Selected && !model.Fortnite.Options.Single(o => o.Option.Id == "animations").Selected, "Fortnite preview detects paths without mutating and omits unavailable or optional changes from selection");
@@ -350,7 +371,7 @@ internal static class InteractionSmokeChecks
                 return new([new("winutil-game-mode", "Modo Juego", true, true, "Fixture applied"), new("fortnite-settings", "Calidad competitiva", false, false, "Fixture game opened; skipped")], cancelled, "Fixture partially applied");
             }
             progress?.Report(new(1, 1, "Fixture step"));
-            return new([new("fortnite-settings", "Calidad competitiva", true, true, "Fixture actual change")], false, "Fixture profile applied");
+            return new(optionIds.Select(id => new FortniteProfileStepResult(id, "Fixture ajuste", true, true, "Fixture actual change")).ToList(), false, "Fixture profile applied");
         }
         public Task<OptimizationOutcome> UndoAsync(string changeId, CancellationToken cancellationToken = default)
         {

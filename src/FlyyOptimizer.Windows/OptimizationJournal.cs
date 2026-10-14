@@ -52,7 +52,7 @@ internal sealed class OptimizationJournal
             {
                 if (!Guid.TryParseExact(entry.Id, "N", out _) || !ids.Add(entry.Id) || string.IsNullOrWhiteSpace(entry.Title) ||
                     entry.State is not ("Pending" or "Completed" or "Partial" or "UndoPending" or "Undone") ||
-                    entry.Values is null || entry.Values.Count is 0 or > 2)
+                    entry.Values is null || entry.Values.Count is 0 or > 16)
                     throw new InvalidDataException("Respaldo de mejoras incompatible.");
                 var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var value in entry.Values)
@@ -101,7 +101,7 @@ internal sealed class OptimizationJournal
                 Guid.TryParse(value.Previous.Text, out _) && Guid.TryParse(value.Intended.Text, out _),
             "startup" => value.Kind == "Registry" && value.Key == OptimizationTargets.Run &&
                 !string.IsNullOrWhiteSpace(value.Name) && value.Name.Length <= 16383 && !value.Name.Contains('\0'),
-            _ => false
+            _ => PerformanceTweaks.Allows(tool, value)
         };
         if (!valid) throw new InvalidDataException("El respaldo contiene una acción o destino no permitido.");
         value.Previous.Validate();

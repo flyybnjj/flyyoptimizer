@@ -17,6 +17,10 @@ internal sealed class ViewModelServices
     public Action<ActionKind, string?> Open { get; init; } = WindowsActions.Open;
     public Func<INativeOptimizationService> CreateNativeTools { get; init; } = () => new NativeOptimizationService();
     public Func<IFortniteProfileService> CreateFortniteProfile { get; init; } = () => new FortniteProfileService();
+    public Func<bool> ConfirmOptimization { get; init; } = () => System.Windows.MessageBox.Show(
+        "¿Optimizar el PC para jugar? Se reducirán apps en segundo plano y calidad gráfica, con respaldo para deshacer. Algunas apps pueden dejar de sincronizar o notificar al cerrarlas.",
+        "Optimizar PC", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question,
+        System.Windows.MessageBoxResult.No) == System.Windows.MessageBoxResult.Yes;
     public Func<string?> ChooseFortniteFolder { get; init; } = () =>
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Seleccionar carpeta de instalación de Fortnite", Multiselect = false };
